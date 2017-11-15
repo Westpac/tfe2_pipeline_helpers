@@ -2,6 +2,22 @@ import consul
 import json
 
 
+def get_secret_information(directory):
+
+    secrets = {}
+    with open(directory + "environment_variables.json", 'r') as fp:
+        variable_list = json.load(fp)
+
+        if "environment_variables" in variable_list:
+            secrets["environment_variables"] = variable_list["environment_variables"]
+        if "workspace_variables" in variable_list:
+            secrets["workspace_variables"] = variable_list["workspace_variables"]
+
+    secrets['atlas_token'] = variable_list["atlas_token"]
+
+    return secrets
+
+
 class BuildInformation:
     def __init__(self, app_id, component_name, environment, consul_address, consul_token="", consul_dc=""):
 
@@ -23,33 +39,18 @@ class BuildInformation:
         return c.kv.get(str(key), token=self.consul_token, dc=self.consul_dc)[1]['Value'].decode('utf-8')
 
     def get_build_information(self):
-        build_information = {}
+        build_information = {"git_repository": self.get_consul_key(self.base_component_key + "git_repository"),
+                             "tf_workspace": self.get_consul_key(self.base_environment_key + "tf_workspace"),
+                             "organisation": self.get_consul_key(
+                                 "shared_services/terraform/" +
+                                 self.get_consul_key(self.base_environment_key + "tf_tenant") +
+                                 "/organisation"
+                             )}
 
         # Get info from consul
-        build_information["git_repository"] = self.get_consul_key(self.base_component_key + "git_repository")
-        build_information["tf_workspace"] = self.get_consul_key(self.base_environment_key + "tf_workspace")
-        build_information["organisation"] = self.get_consul_key(
-            "shared_services/terraform/" +
-            self.get_consul_key(self.base_environment_key + "tf_tenant") +
-            "/organisation"
-        )
 
         return build_information
 
-    def get_secret_information(self, directory):
-
-        secrets = {}
-        with open(directory + "environment_variables.json", 'r') as fp:
-            variable_list = json.load(fp)
-
-            if "environment_variables" in variable_list:
-                secrets["environment_variables"] = variable_list["environment_variables"]
-            if "workspace_variables" in variable_list:
-                secrets["workspace_variables"] = variable_list["workspace_variables"]
-
-        secrets['atlas_token'] = variable_list["atlas_token"]
-
-        return secrets
 
 info = BuildInformation(
     app_id="F12345",

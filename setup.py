@@ -5,10 +5,8 @@ from setuptools import setup, find_packages, Command
 from tfe2_pipeline_helpers import __version__
 from subprocess import call
 
-
 with open('README.md') as f:
     readme = f.read()
-
 
 with open('LICENSE') as f:
     license = f.read()
@@ -26,7 +24,8 @@ class RunTests(Command):
     def finalize_options(self):
         pass
 
-    def run(self):
+    @staticmethod
+    def run():
         """Run all tests!"""
         errno = call(['pytest', '--cov=tfe2_pipeline_helpers', '--cov-report=term-missing'])
         raise SystemExit(errno)
@@ -42,9 +41,9 @@ setup(
     url='https://github.com/westpac/tfe2_pipeline_helpers',
     license=license,
     packages=find_packages(exclude=('tests', 'docs', 'examples', 'schema')),
-    install_requires=['pyhcl', 'jinja2', 'requests'],
+    install_requires=['pyhcl', 'jinja2', 'requests', 'consul_kv'],
     extras_require={
-        'test': ['coverage', 'pytest', 'pytest-cov', 'coverage'],
+        'test': ['coverage', 'pytest', 'pytest-cov'],
     },
     entry_points={
         'console_scripts': [

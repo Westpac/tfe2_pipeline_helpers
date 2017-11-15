@@ -8,14 +8,10 @@ p.add_argument('component_name')
 p.add_argument('environment')
 p.add_argument('destroy')
 
+
 def main(app_id, component_name, environment, destroy=False):
     # Get Build Information
-    info = bf.BuildInformation(
-        app_id=app_id,
-        component_name=component_name,
-        environment=environment,
-        consul_address="consul.australiaeast.cloudapp.azure.com"
-    )
+    info = bf
 
     build_information = info.get_build_information()
     secrets = info.get_secret_information("")
@@ -31,6 +27,7 @@ def main(app_id, component_name, environment, destroy=False):
     )
 
     return api.create_run(destroy=destroy)
+
 
 if __name__ == "__main__":
     args = p.parse_args()

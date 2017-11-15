@@ -9,14 +9,10 @@ p.add_argument('environment')
 p.add_argument('run_id')
 p.add_argument('destroy')
 
+
 def main(app_id, component_name, environment, run_id, destroy=False):
     # Get Build Information
-    info = bf.BuildInformation(
-        app_id=app_id,
-        component_name=component_name,
-        environment=environment,
-        consul_address="consul.australiaeast.cloudapp.azure.com"
-    )
+    info = bf
 
     build_information = info.get_build_information()
     secrets = info.get_secret_information("")

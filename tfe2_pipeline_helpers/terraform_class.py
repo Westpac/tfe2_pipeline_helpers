@@ -1,13 +1,15 @@
 import json
-import hcl
-import requests
 import time
 
+import hcl
+import requests
 
-class TerraformAPICalls():
+
+class TerraformAPICalls:
     base_url = "https://atlas.hashicorp.com/api/v2"
 
-    def __init__(self, organisation, app_id, component_name, workspace_name, environment, repository, secrets, base_api_url=None):
+    def __init__(self, organisation, app_id, component_name, workspace_name, environment, repository, secrets,
+                 base_api_url=None):
         self.header = {
             'Authorization': "Bearer " + secrets["atlas_token"],
             'Content-Type': 'application/vnd.api+json'
@@ -22,7 +24,7 @@ class TerraformAPICalls():
         self.repository = repository
 
     @staticmethod
-    def _request_data_workplace_variable_attributes(key, value, category, sensitive, hcl=False):
+    def _render_request_data_workplace_variable_attributes(key, value, category, sensitive, hcl=False):
         request_data = {
             "data": {
                 "type": "vars",
@@ -40,46 +42,44 @@ class TerraformAPICalls():
 
         return request_data
 
-    def _request_data_workplace_filter(self):
+    def _render_request_data_workplace_filter(self):
         return {
-                "organization": {
-                    "username": self.organisation
-                },
-                "workspace": {
-                    "name": self.workspace_name
-                }
+            "organization": {
+                "username": self.organisation
+            },
+            "workspace": {
+                "name": self.workspace_name
             }
+        }
 
-    def add_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
-                               hcl=False, variable_id=None):
+    def _render_request_run(self, destroy=False):
+        return {
+            "data": {
+                "attributes": {
+                    "is-destroy": destroy
+                },
+                "relationships": {
+                    "workspace": {
+                        "data": {
+                            "type": "workspaces",
+                            "id": self.get_workspace_id
+                        }
+                    }
+                },
+                "type": "runs"
+            }
+        }
 
-        request_url = self.base_url + "/vars"
-        request_data = self._request_data_workplace_variable_attributes(key, value, category, sensitive, hcl)
-
-        if variable_id:
-            request_data["data"]["id"] = variable_id
-            return requests.patch(url=request_url + "/" + variable_id, data=json.dumps(data), headers=self.header)
-
-        else:
-            request_data["filter"] = self._request_data_workplace_filter()
-            return requests.post(url=request_url, data=json.dumps(request_data), headers=self.header).status_code
-
-    def get_workspace_variables(self):
-        request_url = self.base_url + "/vars/?filter[organization][username]" + self.organisation + \
-                      "?filter[workspace][name]" + self.workspace_name
-
-        return json.loads(requests.get(url=request_url, headers=self.header).text)
-
-    def get_workspace_id(self):
+    def _get_workspace_id(self):
         linkable_repo_url = self.base_url + "/organizations/" + self.organisation + "/workspaces"
-        r = requests.get(url=linkable_repo_url, headers=self.header).text
+        response = requests.get(url=linkable_repo_url, headers=self.header)
 
         # Find the ID for the Repository that matches the repository name.
-        for obj in json.loads(r)['data']:
+        for obj in response.json()['data']:
             if obj["attributes"]["name"] == self.workspace_name:
                 return obj["id"]
 
-    def delete_variables(self):
+    def _delete_all_variables(self):
         request_uri = self.base_url + "/vars?filter[organization][username]=" + self.organisation + "&filter[workspace][name]=" + self.workspace_name
 
         data = requests.get(request_uri, headers=self.header).text
@@ -88,21 +88,43 @@ class TerraformAPICalls():
         for tfvar in json.loads(data)["data"]:
             self.delete_variable(tfvar["id"])
 
+    def add_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
+                                         hcl=False, variable_id=None):
+
+        request_url = self.base_url + "/vars"
+        request_data = self._render_request_data_workplace_variable_attributes(key, value, category, sensitive, hcl)
+
+        if variable_id:
+            request_data["data"]["id"] = variable_id
+            return requests.patch(url=request_url + "/" + variable_id, data=json.dumps(data), headers=self.header)
+
+        else:
+            request_data["filter"] = self._render_request_data_workplace_filter()
+            return requests.post(url=request_url, data=json.dumps(request_data), headers=self.header).status_code
+
+    def get_workspace_variables(self):
+        request_url = self.base_url + "/vars/?filter[organization][username]" + self.organisation + \
+                      "?filter[workspace][name]" + self.workspace_name
+
+        return json.loads(requests.get(url=request_url, headers=self.header).text)
+
     def load_secrets(self, destroy=False):
         if "environment_variables" in self.secrets:
             for obj in self.secrets["environment_variables"]:
-                self.add_workspace_variable(obj, self.secrets["environment_variables"][obj], category="env", hcl=False, sensitive=True)
+                self.add_workspace_variable(obj, self.secrets["environment_variables"][obj], category="env", hcl=False,
+                                            sensitive=True)
 
         if "workspace_variables" in self.secrets:
             for obj in self.secrets["workspace_variables"]:
-                self.add_workspace_variable(obj, self.secrets["workspace_variables"][obj], category="env", hcl=False, sensitive=True)
+                self.add_workspace_variable(obj, self.secrets["workspace_variables"][obj], category="env", hcl=False,
+                                            sensitive=True)
 
         if destroy:
             self.add_workspace_variable("CONFIRM_DESTROY", "1", category="env", hcl=False,
                                         sensitive=True)
 
     def load_app_variables(self, directory):
-        url = "https://raw.githubusercontent.com/" + self.repository + "/env/" + self.environment + "/env/" + self.environment +".tfvars"
+        url = "https://raw.githubusercontent.com/" + self.repository + "/env/" + self.environment + "/env/" + self.environment + ".tfvars"
 
         print("Getting Environment Variables from: " + url)
         variable_list = hcl.loads(requests.get(url).text)
@@ -135,7 +157,7 @@ class TerraformAPICalls():
         print("Discarding Untriggered Jobs")
 
         nothing_to_discard = False
-        while not (nothing_to_discard):
+        while not nothing_to_discard:
             data = json.loads(requests.get(request_uri, headers=self.header).text)
 
             nothing_to_discard = True
@@ -160,35 +182,18 @@ class TerraformAPICalls():
 
         # Untriggered plans must be discarded before creating a new one is queued.
         self.discard_untriggered_plans()
-        self.delete_variables()
+        self.delete_all_variables()
         self.load_secrets(destroy)
         self.load_app_variables("")
 
-
         request_uri = self.base_url + "/runs"
+        request_data = self._render_request_run(destroy)
 
-        data = {
-            "data": {
-                "attributes": {
-                    "is-destroy": destroy
-                },
-                "type": "runs",
-                "relationships": {
-                    "workspace": {
-                        "data": {
-                            "type": "workspaces",
-                            "id": self.get_workspace_id
-                        }
-                    }
-                }
-            }
-        }
-
-        return_data = requests.post(request_uri, headers=self.header, data=json.dumps(data))
+        return_data = requests.post(request_uri, headers=self.header, data=json.dumps(request_data))
 
         print("Creating new Terraform run against: " + self.get_workspace_id)
 
-        self.delete_variables()
+        self.delete_all_variables()
 
         # Check if run can be created Successfully
         if str(return_data.status_code).startswith("2"):
@@ -223,7 +228,7 @@ class TerraformAPICalls():
 
             # If Plan Succeeded, Check for Changes
             elif status == "planned":
-                if changes_detected == True:
+                if changes_detected:
                     print("Changes Detected")
                     with open('data.json', 'w') as f:
                         json.dump({'status': "changed", 'run_id': json.loads(return_data.text)['data']['id']}, f,
@@ -247,35 +252,20 @@ class TerraformAPICalls():
     def apply_run(self, run_id, destroy=False):
 
         # Reload secrets into Terraform.
-        self.delete_variables()
+        self.delete_all_variables()
         self.load_secrets(destroy)
         self.load_app_variables("")
 
         request_uri = self.base_url + "/runs/" + run_id + "/actions/apply"
 
-        data = {
-            "data": {
-                "attributes": {
-                    "is-destroy": destroy
-                },
-                "relationships": {
-                    "workspace": {
-                        "data": {
-                            "type": "workspaces",
-                            "id": self.get_workspace_id
-                        }
-                    }
-                },
-                "type": "runs"
-            }
-        }
+        data = self._render_request_run(destroy)
 
         print("Applying Job: " + run_id)
         print("Print URI: " + request_uri)
         print(data)
 
         return_data = requests.post(request_uri, headers=self.header, data=json.dumps(data))
-        print (return_data.status_code)
+        print(return_data.status_code)
         # Url endpoint not available
         # log_read_url = json.loads(return_data.text)['data']['attributes']['log-read-url']
 
@@ -295,7 +285,7 @@ class TerraformAPICalls():
             # print("Log File Directory:" + log_read_url)
             # print(requests.get(log_read_url, headers=self.header).text)
 
-            self.delete_variables()
+            self.delete_all_variables()
 
             # If Plan Failed
             if status == "errored":
@@ -314,4 +304,3 @@ class TerraformAPICalls():
             with open('data.json', 'w') as f:
                 json.dump({"status": "errored"}, f,
                           ensure_ascii=False)
-

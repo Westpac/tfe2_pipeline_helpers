@@ -1,0 +1,96 @@
+{
+  "data": [
+    {
+      "id": "ws-example1",
+      "type": "workspaces",
+      "attributes": {
+        "name": "Example_Workspace_1",
+        "environment": "default",
+        "auto-apply": false,
+        "locked": false,
+        "created-at": "2017-11-15T03:15:29.509Z",
+        "working-directory": "",
+        "terraform-version": "0.10.8",
+        "can-queue-destroy-plan": false,
+        "ingress-trigger-attributes": {
+          "branch": "dev",
+          "default-branch": true,
+          "vcs-root-path": "",
+          "ingress-submodules": false
+        },
+        "permissions": {
+          "can-update": true,
+          "can-destroy": true,
+          "can-queue-destroy": true,
+          "can-queue-run": true,
+          "can-update-variable": true,
+          "can-lock": true,
+          "can-read-settings": true
+        }
+      },
+      "relationships": {
+        "organization": {
+          "data": {
+            "id": "TestOrg",
+            "type": "organizations"
+          }
+        },
+        "ssh-key": {
+          "data": null
+        },
+        "latest-run": {
+          "data": null
+        }
+      }
+    },
+    {
+      "id": "ws-example2",
+      "type": "workspaces",
+      "attributes": {
+        "name": "Example_Workspace_2",
+        "environment": "default",
+        "auto-apply": false,
+        "locked": false,
+        "created-at": "2017-11-13T08:36:00.667Z",
+        "working-directory": "",
+        "terraform-version": "0.10.8",
+        "can-queue-destroy-plan": false,
+        "ingress-trigger-attributes": {
+          "branch": "env/branch",
+          "default-branch": true,
+          "vcs-root-path": "",
+          "ingress-submodules": false
+        },
+        "permissions": {
+          "can-update": true,
+          "can-destroy": true,
+          "can-queue-destroy": true,
+          "can-queue-run": true,
+          "can-update-variable": true,
+          "can-lock": true,
+          "can-read-settings": true
+        }
+      },
+      "relationships": {
+        "organization": {
+          "data": {
+            "id": "TestOrg",
+            "type": "organizations"
+          }
+        },
+        "ssh-key": {
+          "data": null
+        },
+        "latest-run": {
+          "data": {
+            "id": "run-S9sxpqUy5GGsW86S",
+            "type": "runs"
+          },
+          "links": {
+            "related": "/api/v2/runs/run-S9sxpqUy5GGsW86S"
+          }
+        }
+      }
+    }
+  ]
+}
