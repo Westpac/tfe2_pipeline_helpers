@@ -1,0 +1,11 @@
+language: python
+python:
+- '3.6'
+- 3.7-dev
+- nightly
+install:
+- pip install -e .[test]
+- pip install codecov
+script:
+- python setup.py test
+- codecov
