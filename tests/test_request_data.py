@@ -1,45 +1,9 @@
 from unittest import TestCase, mock
 from tfe2_pipeline_helpers import terraform_class as tf
+from tests.requests import requests
 import json
 
-SAMPLE_REQUEST_WORKSPACE_BODY_HCL = {
-    "data": {
-        "type": "vars",
-        "attributes": {
-            "key": "test_key",
-            "value": "test_value",
-            "category": "env",
-            "sensitive": True,
-            "hcl": True
-        }
-    }
-}
 
-SAMPLE_REQUEST_WORKSPACE_FILTER = {
-    "organization": {
-        "username": "TestOrg"
-    },
-    "workspace": {
-        "name": "Example_Workspace_1"
-    }
-}
-
-SAMPLE_REQUEST_RUN = {
-    "data": {
-        "attributes": {
-            "is-destroy": True
-        },
-        "relationships": {
-            "workspace": {
-                "data": {
-                    "type": "workspaces",
-                    "id": "ws-example1"
-                }
-            }
-        },
-        "type": "runs"
-    }
-}
 
 def mocked_terraform_responses(*args, **kwargs):
     class MockResponse:
@@ -69,6 +33,7 @@ class TestTerraform2ApiBodies(TestCase):
         secrets={"atlas_token": "123456"}
     )
 
+
     def test_request_data_workplace_variable_attributes(self):
         self.assertEqual(
             self.api_calls._render_request_data_workplace_variable_attributes(
@@ -78,19 +43,42 @@ class TestTerraform2ApiBodies(TestCase):
                 sensitive=True,
                 hcl=True
             ),
-            SAMPLE_REQUEST_WORKSPACE_BODY_HCL
+            requests.SAMPLE_REQUEST_WORKSPACE_BODY_HCL
         )
 
     def test_request_data_workplace_variable_filter(self):
         self.assertEqual(
             self.api_calls._render_request_data_workplace_filter(),
-            SAMPLE_REQUEST_WORKSPACE_FILTER
+            requests.SAMPLE_REQUEST_WORKSPACE_FILTER
+        )
+
+    def test_request_data_workplace_variable_filter(self):
+        self.assertEqual(
+            self.api_calls._render_request_run(destroy=True),
+            requests.SAMPLE_REQUEST_RUN
         )
 
     @mock.patch('tfe2_pipeline_helpers.terraform_class.requests.get', side_effect=mocked_terraform_responses)
-    def test_request_workspace_id_pass(self, mock_get):
+    def test_request_workspace_id_success(self, mock_get):
         self.assertEqual(
             self.api_calls._get_workspace_id(),
             "ws-example1"
+        )
+
+    @mock.patch('tfe2_pipeline_helpers.terraform_class.requests.get', side_effect=mocked_terraform_responses)
+    def test_request_workspace_id_failure(self, mock_get):
+        non_existant_workspace = tf.TerraformAPICalls(
+            organisation="TestOrg",
+            app_id="123456",
+            component_name="TestComponent",
+            workspace_name="FakeWorkspace",
+            environment="TestEnvironment",
+            repository="TestRepository",
+            secrets={"atlas_token": "123456"}
+        )
+
+        self.assertEqual(
+            non_existant_workspace._get_workspace_id(),
+            None
         )
 
