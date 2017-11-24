@@ -1,0 +1,32 @@
+{
+  "data": {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+      "auto-apply": false,
+      "error-text": null,
+      "is-destroy": false,
+      "message": "New image",
+      "metadata": {},
+      "source": "tfe-configuration-version",
+      "status": "applied",
+      "status-timestamps": {
+        "applied-at": "2017-10-11T11:40:05+00:00",
+        "planned-at": "2017-10-11T11:38:28+00:00",
+        "confirmed-at": "2017-10-11T11:38:53+00:00"
+      },
+      "terraform-version": "0.10.7",
+      "created-at": "2017-10-11T11:38:13.576Z",
+      "may-canceled": false,
+      "may-confirm": false,
+      "may-discarded": false,
+      "has-changes": true,
+      "permissions": {
+        "can-apply": true,
+        "can-cancel": true,
+        "can-discard": true,
+        "can-force-execute": true
+      }
+    }
+  }
+}

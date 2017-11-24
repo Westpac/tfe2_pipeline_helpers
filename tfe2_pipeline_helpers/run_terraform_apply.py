@@ -1,6 +1,7 @@
-import terraform_class as tf
-import build_info as bf
 import argparse
+
+import build_info as bf
+from te2_sdk import te2 as tf
 
 p = argparse.ArgumentParser()
 p.add_argument('app_id')

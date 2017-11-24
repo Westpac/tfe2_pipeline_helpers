@@ -1,0 +1,48 @@
+{
+  "data": [
+    {
+      "id": "var-1",
+      "type": "vars",
+      "attributes": {
+        "key": "key1",
+        "sensitive": false,
+        "category": "terraform",
+        "hcl": false,
+        "value": "val-1"
+      }
+    },
+    {
+      "id": "var-2",
+      "type": "vars",
+      "attributes": {
+        "key": "key2",
+        "sensitive": false,
+        "category": "env",
+        "hcl": false,
+        "value": "val"
+      }
+    },
+    {
+      "id": "var-3",
+      "type": "vars",
+      "attributes": {
+        "key": "key3",
+        "sensitive": false,
+        "category": "terraform",
+        "hcl": false,
+        "value": "val"
+      }
+    },
+    {
+      "id": "var-4",
+      "type": "vars",
+      "attributes": {
+        "key": "key4",
+        "sensitive": false,
+        "category": "terraform",
+        "hcl": true,
+        "value": "val"
+      }
+    }
+  ]
+}
