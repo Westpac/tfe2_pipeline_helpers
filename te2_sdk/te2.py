@@ -1,10 +1,11 @@
 import json
 import time
+import inspect
 
 import hcl
 import requests
 
-class TE22Connectivity:
+class TE2Client:
     def __init__(self, organisation, atlas_token, base_url="https://atlas.hashicorp.com/api/v2"):
 
         self.request_header = {
@@ -12,8 +13,23 @@ class TE22Connectivity:
             'Content-Type': 'application/vnd.api+json'
         }
 
-        self.organisation = organisation()
+        self.organisation = organisation
         self.base_url = base_url
+
+    def get_workspace_id(self, workspace_name):
+
+        # Find the ID for the Repository that matches the repository name.
+        for obj in self.get_all_workspaces():
+            if obj["attributes"]["name"] == workspace_name:
+                return obj["id"]
+        return None
+
+    def get_all_workspaces(self):
+        request = self.get(path="/organizations/" + self.organisation + "/workspaces")
+        if str(request.status_code).startswith("2"):
+            return request.json()['data']
+        else:
+            return None
 
     def get(self, path, params=None):
         return requests.get(url=self.base_url + path, headers=self.request_header, params=params)
@@ -27,25 +43,17 @@ class TE22Connectivity:
     def delete(self, path, params=None):
         return requests.delete(url=self.base_url + path, headers=self.request_header, params=params)
 
+class TE2WorkspaceRuns:
 
-class TE2Runs:
+    def __init__(self, client, app_id, workspace_name, repository, base_api_url=None):
 
-    def __init__(self, organisation, app_id, component_name, workspace_name, environment, repository, secrets,
-                 base_api_url=None):
-
-        self.te2_calls = TE22Connectivity(
-            organisation=organisation,
-            atlas_token=secrets['atlas_token']
-        )
-
-        self.app_id = app_id
-        self.organisation = organisation
-        self.environment = environment
-        self.component_name = component_name
+        self.client = client
         self.workspace_name = workspace_name
+        self.workspace_id = self.client.get_workspace_id(workspace_name)
+        self.app_id = app_id
         self.repository = repository
 
-    def _render_request_run(self, destroy=False):
+    def _render_run_request(self, destroy=False):
         return {
             "data": {
                 "attributes": {
@@ -55,7 +63,7 @@ class TE2Runs:
                     "workspace": {
                         "data": {
                             "type": "workspaces",
-                            "id": self._get_workspace_id()
+                            "id": self.workspace_id
                         }
                     }
                 },
@@ -63,66 +71,69 @@ class TE2Runs:
             }
         }
 
-    def _get_workspace_id(self):
-        response = self.te2_calls.get(path= "/organizations/" + self.organisation + "/workspaces")
+    def get_run_status(self, run_id):
+        run = self.get_run_by_id(run_id)
 
-        # Find the ID for the Repository that matches the repository name.
-        for obj in response.json()['data']:
-            if obj["attributes"]["name"] == self.workspace_name:
-                return obj["id"]
-
-        # Else return an empty object
+        if run:
+            return run['attributes']['status']
         else:
             return None
 
-    # TODO: Rewrite the app variables.
-    def load_app_variables(self, directory):
-        url = "https://raw.githubusercontent.com/" + self.repository + "/env/" + self.environment + "/env/" + self.environment + ".tfvars"
+    def get_workspace_runs(self, workspace_id):
+        run = self.client.get("/workspaces/" + workspace_id + "/runs")
 
-        print("Getting Environment Variables from: " + url)
-        variable_list = hcl.loads(requests.get(url)).json()
-        for obj in variable_list:
-            self._add_or_update_workspace_variable(obj, hcl.dumps(variable_list[obj]), hcl=True)
+        if str(run.status_code).startswith("2"):
+            return run.json()['data']
+        else:
+            return None
 
-        self._add_or_update_workspace_variable("app_id", self.app_id, hcl=False)
+    def get_run_by_id(self, run_id):
+        run = self.client.get("/runs/" + run_id )
 
-    # TODO: Error Handling
-    def get_run_status(self, run_id):
-        data = self.te2_calls.get("/runs/" + run_id).json()
-        return data['data']['attributes']['status']
+        if str(run.status_code).startswith("2"):
+            return run.json()['data']
+        else:
+            return None
 
-    def discard_untriggered_plans(self):
+    def discard_all_pending_runs(self):
 
         # Get Status of all pending plans
-        print("Discarding Untriggered Jobs")
+        print("Discarding pending runs")
 
-        nothing_to_discard = False
-        while not nothing_to_discard:
-            data = self.te2_calls.get(
-                path="/workspaces/" + self._get_workspace_id() + "/runs"
-            ).json()
+        runs_to_discard = True
+        while runs_to_discard:
+            """
+            Since Runs cannot be discarded unless they are in the planned state, this loop iterates through
+            each run, until there are none left in the planned, pending or planning state.
+            
+            The list needs to be pulled on each iteration
+            """
 
-            nothing_to_discard = True
-            for obj in data['data']:
+            run_list = self.client.get(path="/workspaces/" + self.workspace_id + "/runs").json()['data']
 
-                # Delete Item
-                if obj["attributes"]["status"] == "planned":
-                    print("Discarding: " + obj["id"])
-                    self.discard_plan(obj["id"])
+            for run in run_list:
 
-                # More items left to Delete
-                elif obj["attributes"]["status"] == "pending" or obj["attributes"]["status"] == "planning":
-                    nothing_to_discard = False
+                run_status = run["attributes"]["status"]
+
+                if run_status == "planned" or run_status == "pending" or run_status == "planning":
+                    if run_status == "planned":
+                        print("Discarding: " + run["id"])
+                        self.discard_plan(run["id"])
+                else:
+                    runs_to_discard = False
 
     # TODO: Error Handling
-    def discard_plan(self, run_id):
-        request_uri = "/runs/" + run_id + "/actions/discard"
-        data = {"comment": "Dropped by Jenkins Build"} # TODO: Add Job Number
+    def discard_plan_by_id(self, run_id):
 
-        return self.te2_calls.post(
+        request = self.client.post(
             path="/runs/" + run_id + "/actions/discard",
-            data=json.dumps(data)
-        ).text
+            data=json.dumps({"comment": "Dropped by automated pipeline build"})
+        )
+
+        if str(request.status_code).startswith("2"):
+            return "Successfully Discarded Plan: " + run_id
+        else:
+            return None
 
     def create_run(self, destroy=False):
 
@@ -244,13 +255,11 @@ class TE2Runs:
                 json.dump({"status": "errored"}, f,
                           ensure_ascii=False)
 
-
-class TE2Variables():
-    def __init__(self, tfe2_calls, workspace_name, organisation, secrets):
-        self.te2_calls = tfe2_calls   # Connectivity class to provide function calls.
-        self.organisation = organisation
+class TE2WorkspaceVariables():
+    def __init__(self, client, workspace_name):
+        self.client = client   # Connectivity class to provide function calls.
         self.workspace_name = workspace_name
-        self.secrets = secrets
+        self.workspace_id = client.get_workspace_id(workspace_name)
 
     @staticmethod
     def _render_request_data_workplace_variable_attributes(key, value, category, sensitive, hcl=False):
@@ -274,51 +283,76 @@ class TE2Variables():
     def _render_request_data_workplace_filter(self):
         return {
             "organization": {
-                "username": self.organisation
+                "username": self.client.organisation
             },
             "workspace": {
                 "name": self.workspace_name
             }
         }
 
-    def _delete_variable(self, variable_id):
-        return self.te2_calls.delete(path="/vars/" + variable_id)
+    def get_variable_by_name(self, name):
+        vars = self.get_workspace_variables()
 
-    def _delete_all_variables(self):
-        params = {"filter[organization][username]": self.organisation,
-                  "filter[workspace][name]": self.workspace_name
-                  }
+        if vars:
+            for var in self.get_workspace_variables():
+                if var['attributes']['key'] == name:
+                    return var
+        return None
 
-        variable_list = self.te2_calls.get(path= "/vars", params=params).json()
+    def delete_variable_by_name(self, name):
+        var = self.get_variable_by_name(self, name)
+        return self.client.delete(path="/vars/" + var['data']['id'])
+
+    def delete_variable_by_id(self, id):
+        return self.client.delete(path="/vars/" + id)
+
+    def delete_all_variables(self):
+        variables = self.get_workspace_variables()
 
         # Delete Variables
-        for variable in variable_list["data"]:
-            self._delete_variable(variable["id"])
+        for variable in variables:
+            self.delete_variable_by_id(variable["id"])
 
     def get_workspace_variables(self):
         params = {
-            "filter[organization][username]": self.organisation,
+            "filter[organization][username]": self.client.organisation,
             "filter[workspace][name]": self.workspace_name
         }
 
-        return self.te2_calls.get(path="/vars", params=params).json()
+        request = self.client.get(path="/vars", params=params)
+
+        if str(request.status_code).startswith("2"):
+            return request.json()['data']
+        else:
+            return None
 
     # TODO: Error Handling
-    def _add_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
-                                         hcl=False, variable_id=None):
+    def create_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
+                                         hcl=False):
 
-        request_data = self._render_request_data_workplace_variable_attributes(key, value, category, sensitive, hcl).json()
+        request = None
+        request_data = self._render_request_data_workplace_variable_attributes(
+            key, value, category, sensitive, hcl
+        )
 
-        if variable_id:
-            request_data["data"]["id"] = variable_id
-            return self.te2_calls.patch(
-                path= "/vars/" + variable_id,
+        existing_variable = self.get_variable_by_name(key)
+
+        if existing_variable:
+            request_data["data"]["id"] = existing_variable['id']
+
+            request = self.client.patch(
+                path= "/vars/" + existing_variable['id'],
                 data=json.dumps(request_data)
             )
 
         else:
             request_data["filter"] = self._render_request_data_workplace_filter()
-            return self.te2_calls.post(path="/vars", data=json.dumps(request_data)).status_code
+            request = self.client.post(path="/vars", data=json.dumps(request_data))
+
+        if request.status_code().startswith("2"):
+            return "Success"
+        else:
+            return "Failure"
 
     def load_secrets(self, destroy=False):
         if "environment_variables" in self.secrets:
@@ -343,3 +377,14 @@ class TE2Variables():
             for obj in variable_list:
                 self._add_or_update_workspace_variable(obj, variable_list[obj], category="env",
                                             sensitive=True)
+
+    # TODO: Rewrite the app variables.
+    def load_app_variables(self, directory):
+        url = "https://raw.githubusercontent.com/" + self.repository + "/env/" + self.environment + "/env/" + self.environment + ".tfvars"
+
+        print("Getting Environment Variables from: " + url)
+        variable_list = hcl.loads(requests.get(url)).json()
+        for obj in variable_list:
+            self._add_or_update_workspace_variable(obj, hcl.dumps(variable_list[obj]), hcl=True)
+
+        self._add_or_update_workspace_variable("app_id", self.app_id, hcl=False)
