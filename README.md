@@ -1,4 +1,3 @@
-# Terraform Enterprise 2 Pipeline Helpers [![Build Status](https://travis-ci.org/Westpac/tfe2_pipeline_helpers.svg?branch=master)](https://travis-ci.org/Westpac/tfe2_pipeline_helpers) [![codecov](https://codecov.io/gh/Westpac/tfe2_pipeline_helpers/branch/master/graph/badge.svg)](https://codecov.io/gh/Westpac/tfe2_pipeline_helpers) 
+# Terraform Enterprise 2 Pipeline Helpers [![Build Status](https://travis-ci.org/westpac-cloud-engineering/Terraform-Enterprise-2-Python-SDK.svg?branch=master)](https://travis-ci.org/westpac-cloud-engineering/Terraform-Enterprise-2-Python-SDK) [![codecov](https://codecov.io/gh/westpac-cloud-engineering/Terraform-Enterprise-2-Python-SDK/branch/master/graph/badge.svg)](https://codecov.io/gh/westpac-cloud-engineering/Terraform-Enterprise-2-Python-SDK) 
 
-This module contains a number of helper scripts to trigger Terraform Enterprise 2 scripts from Jenkins.
-
+SDK to call Terraform Enterprise 2 using Python.
