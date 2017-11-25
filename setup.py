@@ -2,7 +2,7 @@
 # From: https://github.com/rdegges/skele-cli/blob/master/setup.py
 
 from setuptools import setup, find_packages, Command
-from tfe2_pipeline_helpers import __version__
+from te2_sdk import __version__
 from subprocess import call
 
 with open('README.md') as f:
@@ -44,11 +44,6 @@ setup(
     install_requires=['pyhcl', 'jinja2', 'requests', 'consul_kv'],
     extras_require={
         'test': ['coverage', 'pytest', 'pytest-cov'],
-    },
-    entry_points={
-        'console_scripts': [
-            'gpcook=gpcook.main:main',
-        ],
     },
     cmdclass={'test': RunTests},
 )
