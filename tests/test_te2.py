@@ -42,7 +42,6 @@ def mocked_terraform_responses(*args, **kwargs):
             data = json.load(data_file)
         return MockResponse(data, 200)
 
-
     # Run - Success
     elif kwargs.get('url') == base_url + "/runs/run-testID/actions/discard":
         return MockResponse(None, 200)
@@ -128,6 +127,20 @@ class TestTE2WorkspaceRuns(TestCase):
     def test_get_workspace_runs_fail(self, mock_get):
         self.assertEqual(
             self.runs.get_workspace_runs("Invalid_Workspace"),
+            None
+        )
+
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns.get_run_by_id', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN)
+    def test_get_run_status_success(self, mock_get):
+        self.assertEqual(
+            self.runs.get_run_status("run-testID"),
+            "applied"
+        )
+
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns.get_run_by_id', return_value=None)
+    def test_get_run_status_fail(self, mock_get):
+        self.assertEqual(
+            self.runs.get_run_status("non_existant_id"),
             None
         )
 
@@ -226,3 +239,18 @@ class TestTE2WorkspaceVariables(TestCase):
             self.variables.get_variable_by_name("badkey"),
             None
         )
+
+    """
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mocked_terraform_responses)
+    def test_create_or_update_workspace_variable_new_success(self, mock_get):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="key1",
+                value="value",
+                category="terraform",
+                sensitive=False,
+                hcl=False
+            ),
+            "Success"
+        )
+    """
