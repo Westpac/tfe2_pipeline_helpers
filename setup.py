@@ -27,7 +27,7 @@ class RunTests(Command):
     @staticmethod
     def run():
         """Run all tests!"""
-        errno = call(['pytest', '--cov=tfe2_pipeline_helpers', '--cov-report=term-missing'])
+        errno = call(['pytest', '--cov=te2_sdk', '--cov-report=term-missing'])
         raise SystemExit(errno)
 
 
