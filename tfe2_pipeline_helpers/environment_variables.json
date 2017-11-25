@@ -1,9 +1,0 @@
-{
-  "atlas_token": "uLnSi82vrWl9Jg.atlasv1.VOEc6G7V0tBvDLSsZKYydH3DiPaB4yufnYBmss5XsXyLyi7BOLgmStkJIsCB6RHzKmk",
-  "environment_variables": {
-    "ARM_CLIENT_ID":"54b43a1a-16da-4e6f-b769-e4373add2bb5",
-    "ARM_CLIENT_SECRET":"EEKTkBfX11/PiypLrWM7GtFkscd16TLqm9L1j0fbn78=",
-    "ARM_SUBSCRIPTION_ID":"803a5c9b-e5c9-4acd-887a-192e19bfe21c",
-    "ARM_TENANT_ID":"56ae9e11-e439-4ee4-a872-3718b0b7df82"
-  }
-}
