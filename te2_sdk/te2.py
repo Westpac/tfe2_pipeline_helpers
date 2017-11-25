@@ -330,7 +330,6 @@ class TE2WorkspaceVariables():
     def create_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
                                          hcl=False):
 
-        request = None
         request_data = self._render_request_data_workplace_variable_attributes(
             key, value, category, sensitive, hcl
         )
@@ -339,7 +338,6 @@ class TE2WorkspaceVariables():
 
         if existing_variable:
             request_data["data"]["id"] = existing_variable['id']
-
             request = self.client.patch(
                 path= "/vars/" + existing_variable['id'],
                 data=json.dumps(request_data)
