@@ -1,8 +1,5 @@
 import json
 import time
-import inspect
-
-import hcl
 import requests
 
 class TE2Client:
@@ -135,93 +132,119 @@ class TE2WorkspaceRuns:
         else:
             raise KeyError("Plan has already been discarded")
 
-    def create_run(self, destroy=False):
-
-        # Untriggered plans must be discarded before creating a new one is queued.
-        self.discard_untriggered_plans()
-        self._delete_all_variables()
-        self.load_secrets(destroy)
-        self.load_app_variables("")
+    def create_run(self, run_type="plan", destroy=False):
 
         if destroy:
             print("TBA") #TODO: add destroy variable
 
-        return_data = self.te2_calls.post(path="/runs", data=self._render_request_run(destroy))
+        if run_type == "plan":
+            print("2")
+        elif run_type == "apply":
+            print("2")
+        else:
+            raise SyntaxError("run_type must be 'plan' or 'apply'")
 
-        print("Creating new Terraform run against: " + self.get_workspace_id)
+    def _request_run_request(self, run_id=None, destroy=False):
+        if run_id: # Run an apply
+            path="/runs/" + run_id + "/actions/apply"
 
-        self._delete_all_variables()
+        else: # Discard all existing plans
+            self.discard_all_pending_runs()
+            path="/runs/"
 
-        # Check if run can be created Successfully
-        if str(return_data.status_code).startswith("2"):
-            print("New Run: " + json.loads(return_data.text)['data']['id'])
+        request = self.client.post(path=path, data=json.dumps(self._render_run_request(destroy)))
 
+        if str(request.status_code).startswith("2"):
+            return request.json()['data']
+
+        else:
+            SyntaxError("Invalid call to Terraform Enterprise 2")
+
+    def _wait_for_plan_to_complete(self, id):
+        while True:
+            print("Job Status: Planning")
+            time.sleep(5) # Leaving 5 seconds for plan to complete
+            request = self.client.get(path="/runs/" + id)
+            if request['data']['attributes']['status'] == "planning":
+                return {
+                    "status": request['data']['attributes']['status'],
+                    "changes_detected":  request['data']['attributes']['has-changes']
+                }
+
+    def get_plan(self, run_id):
+        run = self.client.get("/runs/" + run_id + "/plan" )
+
+        if str(run.status_code).startswith("2"):
+            return run.json()['data']
+        else:
+            raise KeyError("Run does not exist")
+
+    def get_apply(self, run_id):
+        run = self.client.get("/runs/" + run_id + "/apply" )
+
+        if str(run.status_code).startswith("2"):
+            return run.json()['data']
+        else:
+            raise KeyError("Run does not exist")
+
+    def get_plan_log(self, run_id):
+        run = self.get_run_by_id(run_id)
+
+        self.client.get()
+
+        if True:
+            return "log"
+        else:
+            raise KeyError("Run_ID does not exist")
+
+    def create_plan(self, destroy=False):
+
+        results = {}
+
+        try:
+            request = self._request_run_request(destroy=destroy)
+        except:
             # Keep Checking until planning phase has finished
-            planning = True
-            status = "planning"
-            changes_detected = None
+            results = {"status": "failed"}
+        else:
+            print("New Run: " + request['data']['id'])
 
-            while planning:
-                planning = False
-                print("Job Status: Planning")
-                time.sleep(5)
+        finally:
+            return results
 
-                request = self.te2_calls.get(path="/runs/" + return_data.text['data']['id']).json()
+        print("changes detected: " + str(changes_detected))
 
-                status = request['data']['attributes']['status']
-                changes_detected = request['data']['attributes']['has-changes']
-                if status == "planning":
-                    planning = True
+        # If Plan Failed
+        if status == "errored":
+            print("Job Status: Failed")
+            print("Job Output")
+            exit(1)
 
-            print("changes detected: " + str(changes_detected))
+        # If Plan Succeeded, Check for Changes
+        elif status == "planned":
+            if changes_detected:
+                print("Changes Detected")
+                with open('data.json', 'w') as f:
+                    json.dump({'status': "changed", 'run_id': json.loads(return_data.text)['data']['id']}, f,
+                              ensure_ascii=False)
 
-            # If Plan Failed
-            if status == "errored":
-                print("Job Status: Failed")
-                print("Job Output")
-                exit(1)
+            else:
+                print("No Changes Detected")
+                with open('data.json', 'w') as f:
+                    json.dump({"status": "unchanged", "run_id": json.loads(return_data.text)['data']['id']}, f,
+                              ensure_ascii=False)
 
-            # If Plan Succeeded, Check for Changes
-            elif status == "planned":
-                if changes_detected:
-                    print("Changes Detected")
-                    with open('data.json', 'w') as f:
-                        json.dump({'status': "changed", 'run_id': json.loads(return_data.text)['data']['id']}, f,
-                                  ensure_ascii=False)
+        exit(0)
 
-                else:
-                    print("No Changes Detected")
-                    with open('data.json', 'w') as f:
-                        json.dump({"status": "unchanged", "run_id": json.loads(return_data.text)['data']['id']}, f,
-                                  ensure_ascii=False)
 
-            exit(0)
+        print("Plan Failed: " + json.loads(return_data.text)["data"]["attributes"]["message"])
 
-        else:  # Else Fail Run
-            print("Plan Failed: " + json.loads(return_data.text)["data"]["attributes"]["message"])
-
-            with open('data.json', 'w') as f:
-                json.dump({"status": "failed", "run_id": json.loads(return_data.text)['data']['id']}, f,
-                          ensure_ascii=False)
+        with open('data.json', 'w') as f:
+            json.dump({"status": "failed", "run_id": json.loads(return_data.text)['data']['id']}, f,
+                      ensure_ascii=False)
 
     def apply_run(self, run_id, destroy=False):
 
-        # Reload secrets into Terraform.
-        self.delete_all_variables()
-        self.load_secrets(destroy)
-        self.load_app_variables("")
-
-        request_uri = self.base_url + "/runs/" + run_id + "/actions/apply"
-
-        data = self._render_request_run(destroy)
-
-        print("Applying Job: " + run_id)
-
-        return_data = self.te2_calls.post(path="/runs/" + run_id + "/actions/apply", data=json.dumps(data))
-        print(return_data.status_code)
-
-        # TODO: Add link to logs
-        # log_read_url = json.loads(return_data.text)['data']['attributes']['log-read-url']
 
         if str(return_data.status_code).startswith("2"):
 

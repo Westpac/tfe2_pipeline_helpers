@@ -1,0 +1,24 @@
+{
+  "data": {
+    "id": "plan-hx19mwh94f3hpnfo",
+    "type": "plans",
+    "attributes": {
+      "has-changes": false,
+      "status": "errored",
+      "status-timestamps": {
+        "queued-at": "2017-11-23T05:11:03+00:00",
+        "errored-at": "2017-11-23T05:11:10+00:00",
+        "started-at": "2017-11-23T05:11:03+00:00"
+      },
+      "log-read-url": "https://archivist.hashicorp.com/v1/object/dmF1bHQ6djE6SC9GVHh0SjJVMTlweHBzR0lLMmd5U2dKaEhzR2JQVlFJS1RrMFp3MFduMlltdzBxaWJhMktEZm5laDBmbCtFSEJlamFXbFNmOFczaDdzTFNlcEVIb2VpRjFWMDh5L0txbnkzRmZvWDRjbmtNVlVKSVJKT0Y2Qk5VZlNTeFIwdTNGaks1WWE5QSthUzM1WlJHR3RYekxHRzEreG14VDhnPQ"
+    },
+    "relationships": {
+      "state-versions": {
+        "data": []
+      }
+    },
+    "links": {
+      "self": "/api/v2/plans/plan-hx19mwh94f3hpnfo"
+    }
+  }
+}
