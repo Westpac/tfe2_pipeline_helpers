@@ -2,6 +2,7 @@ import json
 import time
 import requests
 
+
 class TE2Client:
     def __init__(self, organisation, atlas_token, base_url="https://atlas.hashicorp.com/api/v2"):
 
@@ -40,8 +41,8 @@ class TE2Client:
     def delete(self, path, params=None):
         return requests.delete(url=self.base_url + path, headers=self.request_header, params=params)
 
-class TE2WorkspaceRuns:
 
+class TE2WorkspaceRuns:
     def __init__(self, client, app_id, workspace_name, repository, base_api_url=None):
 
         self.client = client
@@ -72,9 +73,13 @@ class TE2WorkspaceRuns:
         if run_id:  # Run an apply
             path = "/runs/" + run_id + "/actions/apply"
 
-        else:  # Discard all existing plans
+        else:  # Else, Run a Plan (and discard all existing plans)
             self.discard_all_pending_runs()
-            path = "/runs/"
+            path = "/runs"
+
+        if destroy:
+            vars = TE2WorkspaceVariables(client=self.client, workspace_name=self.workspace_name)
+            vars.create_or_update_workspace_variable(key="CONFIRM_DESTROY", value="1", category="env")
 
         request = self.client.post(path=path, data=json.dumps(self._render_run_request(destroy)))
 
@@ -82,9 +87,9 @@ class TE2WorkspaceRuns:
             return request.json()['data']
 
         else:
-            SyntaxError("Invalid call to Terraform Enterprise 2")
+            raise SyntaxError("Invalid call to Terraform Enterprise 2")
 
-    def _get_run_results(self, run_id, request_type="plan"):
+    def _get_run_results(self, run_id, request_type="plan", timeout_count=120):
         """
         Wait for plan/apply results, else timeout
 
@@ -92,22 +97,18 @@ class TE2WorkspaceRuns:
         :return: Returns object of the results.
         """
 
-        if request_type == "plan":
-            wait_boundary = 30  # Plan timeout = 5 minutes
-        elif request_type == "apply":
-            wait_boundary = 120 # Apply timeout = 20 minutes
-        else:
+        if request_type is not "plan" and request_type is not "apply":
             raise KeyError("request_type must be Plan or Apply")
 
-        for x in range(0, wait_boundary):
+        for x in range(0, timeout_count):
+
+            request = self.client.get(path="/runs/" + run_id).json()
+            if request['data']['attributes']['status'] is not "planning" and \
+                            request['data']['attributes']['status'] is not "applying":
+                return request['data']
 
             print("Job Status: " + request_type + "ing | " + str(x * 10) + " seconds")
             time.sleep(10)
-
-            request = self.client.get(path="/runs/" + run_id)
-            if request['data']['attributes']['status'] is not "planning" and \
-                request['data']['attributes']['status'] is not "applying":
-                return request['data']
 
         raise TimeoutError("Plan took too long to resolve")
 
@@ -128,7 +129,7 @@ class TE2WorkspaceRuns:
             raise KeyError("Run does not exist")
 
     def get_run_by_id(self, run_id):
-        run = self.client.get("/runs/" + run_id )
+        run = self.client.get("/runs/" + run_id)
 
         if str(run.status_code).startswith("2"):
             return run.json()['data']
@@ -161,6 +162,7 @@ class TE2WorkspaceRuns:
                         self.discard_plan(run["id"])
                 else:
                     runs_to_discard = False
+        return True
 
     def discard_plan_by_id(self, run_id):
 
@@ -174,54 +176,29 @@ class TE2WorkspaceRuns:
         else:
             raise KeyError("Plan has already been discarded")
 
-    def create_run(self, run_type="plan", destroy=False):
-
-        if destroy:
-            print("TBA") #TODO: add destroy variable
-
-        if run_type == "plan":
-            print("2")
-        elif run_type == "apply":
-            print("2")
-        else:
-            raise SyntaxError("run_type must be 'plan' or 'apply'")
-
-    def get_plan(self, run_id):
-        run = self.client.get("/runs/" + run_id + "/plan" )
+    def get_run_action(self, run_id, request_type):
+        run = self.client.get("/runs/" + run_id + "/" + request_type)
 
         if str(run.status_code).startswith("2"):
             return run.json()['data']
-        else:
-            raise KeyError("Run does not exist")
 
-    def get_apply(self, run_id):
-        run = self.client.get("/runs/" + run_id + "/apply" )
+        raise IndexError("Run or Action does not exist")
 
-        if str(run.status_code).startswith("2"):
-            return run.json()['data']
-        else:
-            raise KeyError("Run does not exist")
+    # TODO: Get Run Log STUB
+    def get_plan_log(self, run_id, request_type="plan"):
+        return self.get_run_action(run_id, request_type=request_type)['attributes']['log-read-url']
 
-    def get_plan_log(self, run_id):
-        run = self.get_run_by_id(run_id)
+    def request_run(self, request_type="plan", destroy=False):
 
-        self.client.get()
-
-        if True:
-            return "log"
-        else:
-            raise KeyError("Run_ID does not exist")
-
-    def request_run(self, destroy=False, request_type="plan"):
+        results = {}
 
         try:
             request = self._request_run_request(destroy=destroy)
         except SyntaxError:
-
             results = {}
         else:
             print("New Run: " + request['data']['id'])
-            results = self._get_run_results(run_id= request['data']['id'], request_type="plan")
+            results = self._get_run_results(run_id=request['data']['id'], request_type=request_type)
 
             if results['attributes']['status'] == "errored":
                 print("Job Status: Failed")
@@ -241,7 +218,7 @@ class TE2WorkspaceRuns:
 
 class TE2WorkspaceVariables():
     def __init__(self, client, workspace_name):
-        self.client = client   # Connectivity class to provide function calls.
+        self.client = client  # Connectivity class to provide function calls.
         self.workspace_name = workspace_name
         self.workspace_id = client.get_workspace_id(workspace_name)
 
@@ -290,14 +267,14 @@ class TE2WorkspaceVariables():
             if self.delete_variable_by_id(var):
                 return True
 
-        return KeyError('ID does not exist or cannot be deleted')
+        # Exceptions will be raised by underlying function calls on failure
 
     def delete_variable_by_id(self, id):
         request = self.client.delete(path="/vars/" + id)
 
         if str(request.status_code).startswith('2'):
             return True
-        return KeyError('ID does not exist or cannot be deleted')
+        raise KeyError('ID does not exist or cannot be deleted')
 
     def delete_all_variables(self):
         variables = self.get_workspace_variables()
@@ -317,11 +294,11 @@ class TE2WorkspaceVariables():
         if str(request.status_code).startswith("2"):
             return request.json()['data']
         else:
-            raise KeyError('Keys or Workspace do not exist') # TODO: Split later
+            raise KeyError('Keys or Workspace do not exist')  # TODO: Split later
 
     # TODO: Error Handling
     def create_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
-                                         hcl=False):
+                                            hcl=False):
         # Data Validation
         if category is not "env" and category is not "terraform":
             raise SyntaxError("Category should be 'env' or 'terraform")
