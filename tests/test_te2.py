@@ -212,8 +212,10 @@ class TestTE2WorkspaceRuns(TestCase):
                 timeout_count=0
             ))
 
-    """
+
     @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._request_run_request', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._get_run_results', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN)
     def test_request_run_success(self, *args, **kwargs):
         self.assertEqual(
             self.runs.request_run(
@@ -221,9 +223,54 @@ class TestTE2WorkspaceRuns(TestCase):
                 destroy=False
             ),
             sample_responses.SAMPLE_GET_WORKSPACE_RUN
-
         )
-    """
+
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._request_run_request', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._get_run_results', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN_PLANNED_CHANGES)
+    def test_request_run_plan_changes(self, *args, **kwargs):
+        self.assertEqual(
+            self.runs.request_run(
+                request_type="plan",
+                destroy=False
+            ),
+            sample_responses.SAMPLE_GET_WORKSPACE_RUN_PLANNED_CHANGES
+        )
+
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._request_run_request', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._get_run_results', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN_PLANNED_NO_CHANGES)
+    def test_request_run_plan_no_changes(self, *args, **kwargs):
+        self.assertEqual(
+            self.runs.request_run(
+                request_type="plan",
+                destroy=False
+            ),
+            sample_responses.SAMPLE_GET_WORKSPACE_RUN_PLANNED_NO_CHANGES
+        )
+
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._request_run_request', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._get_run_results', return_value=sample_responses.SAMPLE_GET_WORKSPACE_RUN_PLANNED_ERRORED)
+    def test_request_run_errored(self, *args, **kwargs):
+        self.assertEqual(
+            self.runs.request_run(
+                request_type="plan",
+                destroy=False
+            ),
+            sample_responses.SAMPLE_GET_WORKSPACE_RUN_PLANNED_ERRORED
+        )
+
+    @mock.patch('te2_sdk.te2.TE2WorkspaceRuns._request_run_request', side_effect=SyntaxError)
+    def test_request_run_syntax_error(self, *args, **kwargs):
+        self.assertEqual(
+            self.runs.request_run(
+                request_type="plan",
+                destroy=False
+            ),
+            {}
+        )
+
 
 class TestTE2WorkspaceVariables(TestCase):
     @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', return_value="ws-example1")

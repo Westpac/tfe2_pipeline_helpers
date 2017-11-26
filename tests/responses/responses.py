@@ -193,6 +193,42 @@ SAMPLE_GET_WORKSPACE_RUN = {
     }
 }
 
+SAMPLE_GET_WORKSPACE_RUN_PLANNED_CHANGES = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "planned",
+        "has-changes": True,
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_PLANNED_NO_CHANGES = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "planned",
+        "has-changes": False,
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_PLANNED_ERRORED = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "errored",
+        "has-changes": False,
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_PLANNED = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "applied",
+        "has-changes": True,
+    }
+}
+
 SAMPLE_GET_WORKSPACE_VARIABLES_PARAMS = {
     'filter[organization][username]': 'TestOrg',
     'filter[workspace][name]': 'Example_Workspace_1'

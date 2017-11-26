@@ -197,14 +197,15 @@ class TE2WorkspaceRuns:
         except SyntaxError:
             results = {}
         else:
-            print("New Run: " + request['data']['id'])
-            results = self._get_run_results(run_id=request['data']['id'], request_type=request_type)
+            print("New Run: " + request['id'])
+
+            results = self._get_run_results(run_id=request['id'], request_type=request_type)
 
             if results['attributes']['status'] == "errored":
                 print("Job Status: Failed")
 
             elif results['attributes']['status'] == "planned":
-                if ['has-changes']:
+                if results['attributes']['has-changes']:
                     print("Job Status: Changes Detected")
                 else:
                     print("Job Status: No Changes Detected")
