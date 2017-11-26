@@ -5,10 +5,8 @@ from tests.mocks import mocked_terraform_responses_gets as mock_gets
 from tests.mocks import mocked_terraform_responses_posts as mock_posts
 from tests.mocks import mocked_terraform_responses_patches as mock_patches
 from tests.mocks import mocked_terraform_responses_deletes as mock_deletes
-
-
-
 from te2_sdk.te2 import TE2Client, TE2WorkspaceRuns, TE2WorkspaceVariables
+
 
 class TestTE2Client(TestCase):
     def setUp(self):
