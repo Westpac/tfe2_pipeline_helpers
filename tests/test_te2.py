@@ -57,9 +57,7 @@ class TestTE2WorkspaceRuns(TestCase):
 
         self.runs = TE2WorkspaceRuns(
             client=self.client,
-            app_id="123456",
             workspace_name="Example_Workspace_1",
-            repository="TestRepository",
         )
 
     def test_render_run_request(self):
@@ -390,7 +388,7 @@ class TestTE2WorkspaceVariables(TestCase):
             ),
         )
 
-    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', return_value=None)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', side_effect=KeyError)
     @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
     def test_create_or_update_workspace_variable_new_success(self, *args, **kwargs):
         self.assertTrue(
@@ -403,7 +401,7 @@ class TestTE2WorkspaceVariables(TestCase):
             )
         )
 
-    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', return_value=None)
+    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', side_effect=KeyError)
     @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
     def test_create_or_update_workspace_variable_new_fail(self, *args, **kwargs):
         self.assertRaises(

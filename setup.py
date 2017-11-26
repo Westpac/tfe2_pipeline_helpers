@@ -32,7 +32,7 @@ class RunTests(Command):
 
 
 setup(
-    name='te2-sdk',
+    name='te2_sdk',
     version=__version__,
     description='Simple Wrapper for Terraform Enterprise 2 Jobs',
     long_description=readme,
