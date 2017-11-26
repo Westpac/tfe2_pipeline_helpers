@@ -147,6 +147,7 @@ class TestTE2WorkspaceVariables(TestCase):
             sample_requests.SAMPLE_REQUEST_WORKSPACE_BODY_HCL
         )
 
+
     def test_request_data_workplace_variable_filter(self):
         self.assertEqual(
             self.variables._render_request_data_workplace_filter(),
@@ -212,6 +213,8 @@ class TestTE2WorkspaceVariables(TestCase):
                 hcl=False
             )
         )
+
+
 
     @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
     def test_create_or_update_workspace_variable_invalid_sensitive(self, mock_get):
