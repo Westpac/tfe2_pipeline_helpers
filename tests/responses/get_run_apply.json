@@ -1,0 +1,32 @@
+{
+  "data": {
+    "id": "apply-testid",
+    "type": "applies",
+    "attributes": {
+      "status": "finished",
+      "status-timestamps": {
+        "queued-at": "2017-10-11T11:38:53+00:00",
+        "started-at": "2017-10-11T11:38:53+00:00",
+        "finished-at": "2017-10-11T11:40:05+00:00"
+      },
+      "log-read-url": "https://logurl.com"
+    },
+    "relationships": {
+      "state-versions": {
+        "data": [
+          {
+            "id": "sv-itHyqeoiwGgBpCXu",
+            "type": "state-versions"
+          },
+          {
+            "id": "sv-L2P1f9Hj2G45HXqA",
+            "type": "state-versions"
+          }
+        ]
+      }
+    },
+    "links": {
+      "self": "/api/v2/applies/apply-testid"
+    }
+  }
+}
