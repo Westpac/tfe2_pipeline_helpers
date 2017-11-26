@@ -1,9 +1,7 @@
 import json
 import time
-import inspect
-
-import hcl
 import requests
+
 
 class TE2Client:
     def __init__(self, organisation, atlas_token, base_url="https://atlas.hashicorp.com/api/v2"):
@@ -22,14 +20,14 @@ class TE2Client:
         for obj in self.get_all_workspaces():
             if obj["attributes"]["name"] == workspace_name:
                 return obj["id"]
-        return None
+        raise KeyError('Workspace ID Cannot be found')
 
     def get_all_workspaces(self):
         request = self.get(path="/organizations/" + self.organisation + "/workspaces")
         if str(request.status_code).startswith("2"):
             return request.json()['data']
         else:
-            return None
+            raise KeyError('No workspaces can be found under this organisation')
 
     def get(self, path, params=None):
         return requests.get(url=self.base_url + path, headers=self.request_header, params=params)
@@ -43,8 +41,8 @@ class TE2Client:
     def delete(self, path, params=None):
         return requests.delete(url=self.base_url + path, headers=self.request_header, params=params)
 
-class TE2WorkspaceRuns:
 
+class TE2WorkspaceRuns:
     def __init__(self, client, app_id, workspace_name, repository, base_api_url=None):
 
         self.client = client
@@ -71,13 +69,56 @@ class TE2WorkspaceRuns:
             }
         }
 
+    def _request_run_request(self, run_id=None, destroy=False):
+        if run_id:  # Run an apply
+            path = "/runs/" + run_id + "/actions/apply"
+
+        else:  # Else, Run a Plan (and discard all existing plans)
+            self.discard_all_pending_runs()
+            path = "/runs"
+
+        if destroy:
+            vars = TE2WorkspaceVariables(client=self.client, workspace_name=self.workspace_name)
+            vars.create_or_update_workspace_variable(key="CONFIRM_DESTROY", value="1", category="env")
+
+        request = self.client.post(path=path, data=json.dumps(self._render_run_request(destroy)))
+
+        if str(request.status_code).startswith("2"):
+            return request.json()['data']
+
+        else:
+            raise SyntaxError("Invalid call to Terraform Enterprise 2")
+
+    def _get_run_results(self, run_id, request_type="plan", timeout_count=120):
+        """
+        Wait for plan/apply results, else timeout
+
+        :param run_id: ID for the run
+        :return: Returns object of the results.
+        """
+
+        if request_type is not "plan" and request_type is not "apply":
+            raise KeyError("request_type must be Plan or Apply")
+
+        for x in range(0, timeout_count):
+
+            request = self.client.get(path="/runs/" + run_id).json()
+            if request['data']['attributes']['status'] is not "planning" and \
+                            request['data']['attributes']['status'] is not "applying":
+                return request['data']
+
+            print("Job Status: " + request_type + "ing | " + str(x * 10) + " seconds")
+            time.sleep(10)
+
+        raise TimeoutError("Plan took too long to resolve")
+
     def get_run_status(self, run_id):
         run = self.get_run_by_id(run_id)
 
         if run:
             return run['attributes']['status']
         else:
-            return None
+            raise KeyError("Run does not exist")
 
     def get_workspace_runs(self, workspace_id):
         run = self.client.get("/workspaces/" + workspace_id + "/runs")
@@ -85,15 +126,15 @@ class TE2WorkspaceRuns:
         if str(run.status_code).startswith("2"):
             return run.json()['data']
         else:
-            return None
+            raise KeyError("Run does not exist")
 
     def get_run_by_id(self, run_id):
-        run = self.client.get("/runs/" + run_id )
+        run = self.client.get("/runs/" + run_id)
 
         if str(run.status_code).startswith("2"):
             return run.json()['data']
         else:
-            return None
+            raise KeyError("Run does not exist")
 
     def discard_all_pending_runs(self):
 
@@ -121,8 +162,8 @@ class TE2WorkspaceRuns:
                         self.discard_plan(run["id"])
                 else:
                     runs_to_discard = False
+        return True
 
-    # TODO: Error Handling
     def discard_plan_by_id(self, run_id):
 
         request = self.client.post(
@@ -133,131 +174,52 @@ class TE2WorkspaceRuns:
         if str(request.status_code).startswith("2"):
             return "Successfully Discarded Plan: " + run_id
         else:
-            return None
+            raise KeyError("Plan has already been discarded")
 
-    def create_run(self, destroy=False):
+    def get_run_action(self, run_id, request_type):
+        run = self.client.get("/runs/" + run_id + "/" + request_type)
 
-        # Untriggered plans must be discarded before creating a new one is queued.
-        self.discard_untriggered_plans()
-        self._delete_all_variables()
-        self.load_secrets(destroy)
-        self.load_app_variables("")
+        if str(run.status_code).startswith("2"):
+            return run.json()['data']
 
-        return_data = self.te2_calls.post(path="/runs", data=self._render_request_run(destroy))
+        raise IndexError("Run or Action does not exist")
 
-        print("Creating new Terraform run against: " + self.get_workspace_id)
+    # TODO: Get Run Log STUB
+    def get_plan_log(self, run_id, request_type="plan"):
+        return self.get_run_action(run_id, request_type=request_type)['attributes']['log-read-url']
 
-        self._delete_all_variables()
+    def request_run(self, request_type="plan", destroy=False):
 
-        # Check if run can be created Successfully
-        if str(return_data.status_code).startswith("2"):
-            print("New Run: " + json.loads(return_data.text)['data']['id'])
+        results = {}
 
-            # Keep Checking until planning phase has finished
-            planning = True
-            status = "planning"
-            changes_detected = None
-            while planning:
-                planning = False
-                print("Job Status: Planning")
-                time.sleep(5)
+        try:
+            request = self._request_run_request(destroy=destroy)
+        except SyntaxError:
+            results = {}
+        else:
+            print("New Run: " + request['id'])
 
-                request = self.te2_calls.get(path="/runs/" + return_data.text['data']['id']).json()
+            results = self._get_run_results(run_id=request['id'], request_type=request_type)
 
-                status = request['data']['attributes']['status']
-                changes_detected = request['data']['attributes']['has-changes']
-                if status == "planning":
-                    planning = True
-
-            print("changes detected: " + str(changes_detected))
-
-            # If Plan Failed
-            if status == "errored":
+            if results['attributes']['status'] == "errored":
                 print("Job Status: Failed")
-                print("Job Output")
-                exit(1)
 
-            # If Plan Succeeded, Check for Changes
-            elif status == "planned":
-                if changes_detected:
-                    print("Changes Detected")
-                    with open('data.json', 'w') as f:
-                        json.dump({'status': "changed", 'run_id': json.loads(return_data.text)['data']['id']}, f,
-                                  ensure_ascii=False)
-
+            elif results['attributes']['status'] == "planned":
+                if results['attributes']['has-changes']:
+                    print("Job Status: Changes Detected")
                 else:
-                    print("No Changes Detected")
-                    with open('data.json', 'w') as f:
-                        json.dump({"status": "unchanged", "run_id": json.loads(return_data.text)['data']['id']}, f,
-                                  ensure_ascii=False)
+                    print("Job Status: No Changes Detected")
 
-            exit(0)
+            elif results['attributes']['status'] == "applied":
+                print("Job Status: Apply Successful")
 
-        else:  # Else Fail Run
-            print("Plan Failed: " + json.loads(return_data.text)["data"]["attributes"]["message"])
+        finally:
+            return results
 
-            with open('data.json', 'w') as f:
-                json.dump({"status": "failed", "run_id": json.loads(return_data.text)['data']['id']}, f,
-                          ensure_ascii=False)
-
-    def apply_run(self, run_id, destroy=False):
-
-        # Reload secrets into Terraform.
-        self.delete_all_variables()
-        self.load_secrets(destroy)
-        self.load_app_variables("")
-
-        request_uri = self.base_url + "/runs/" + run_id + "/actions/apply"
-
-        data = self._render_request_run(destroy)
-
-        print("Applying Job: " + run_id)
-
-        return_data = self.te2_calls.post(path="/runs/" + run_id + "/actions/apply", data=json.dumps(data))
-        print(return_data.status_code)
-
-        # TODO: Add link to logs
-        # log_read_url = json.loads(return_data.text)['data']['attributes']['log-read-url']
-
-        if str(return_data.status_code).startswith("2"):
-
-            # Keep Checking until planning phase has finished
-            status = "applying"
-            while status == "applying" or status == "queued":
-                print("Job Status: Applying changes")
-                time.sleep(5)
-
-                request = self.te2_calls.get(path="/runs/" + run_id).json()
-
-                status = request['data']['attributes']['status']
-
-            # Get Log File
-            # print("Log File Directory:" + log_read_url)
-            # print(requests.get(log_read_url, headers=self.header).text)
-
-            self._delete_all_variables()
-
-            # If Plan Failed
-            if status == "errored":
-                with open('data.json', 'w') as f:
-                    json.dump({"status": "failed"}, f,
-                              ensure_ascii=False)
-
-            # If Plan Succeeded, Check for Changes
-            elif status == "applied":
-                with open('data.json', 'w') as f:
-                    json.dump({"status": "applied"}, f,
-                              ensure_ascii=False)
-
-        else:  # Else Fail Run
-            print("Apply Failed")
-            with open('data.json', 'w') as f:
-                json.dump({"status": "errored"}, f,
-                          ensure_ascii=False)
 
 class TE2WorkspaceVariables():
     def __init__(self, client, workspace_name):
-        self.client = client   # Connectivity class to provide function calls.
+        self.client = client  # Connectivity class to provide function calls.
         self.workspace_name = workspace_name
         self.workspace_id = client.get_workspace_id(workspace_name)
 
@@ -297,14 +259,23 @@ class TE2WorkspaceVariables():
             for var in self.get_workspace_variables():
                 if var['attributes']['key'] == name:
                     return var
-        return None
+        raise KeyError('Name: \'' + "name" + "\' does not exist")
 
     def delete_variable_by_name(self, name):
         var = self.get_variable_by_name(self, name)
-        return self.client.delete(path="/vars/" + var['data']['id'])
+
+        if var:
+            if self.delete_variable_by_id(var):
+                return True
+
+        # Exceptions will be raised by underlying function calls on failure
 
     def delete_variable_by_id(self, id):
-        return self.client.delete(path="/vars/" + id)
+        request = self.client.delete(path="/vars/" + id)
+
+        if str(request.status_code).startswith('2'):
+            return True
+        raise KeyError('ID does not exist or cannot be deleted')
 
     def delete_all_variables(self):
         variables = self.get_workspace_variables()
@@ -324,67 +295,34 @@ class TE2WorkspaceVariables():
         if str(request.status_code).startswith("2"):
             return request.json()['data']
         else:
-            return None
+            raise KeyError('Keys or Workspace do not exist')  # TODO: Split later
 
     # TODO: Error Handling
     def create_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
-                                         hcl=False):
+                                            hcl=False):
+        # Data Validation
+        if category is not "env" and category is not "terraform":
+            raise SyntaxError("Category should be 'env' or 'terraform")
+        if sensitive is not True and sensitive is not False:
+            raise SyntaxError('Sensitive should be True or False')
+        if hcl is not True and hcl is not False:
+            raise SyntaxError('hcl should be True or False')
 
-        request = None
         request_data = self._render_request_data_workplace_variable_attributes(
-            key, value, category, sensitive, hcl
+            key.replace(' ', '_'), value.replace(' ', '_'), category, sensitive, hcl
         )
 
         existing_variable = self.get_variable_by_name(key)
 
         if existing_variable:
-            request_data["data"]["id"] = existing_variable['id']
-
-            request = self.client.patch(
-                path= "/vars/" + existing_variable['id'],
-                data=json.dumps(request_data)
-            )
+            request_data["data"]["id"] = existing_variable
+            request = self.client.patch(path="/vars/" + existing_variable, data=json.dumps(request_data))
 
         else:
             request_data["filter"] = self._render_request_data_workplace_filter()
             request = self.client.post(path="/vars", data=json.dumps(request_data))
 
-        if request.status_code().startswith("2"):
-            return "Success"
+        if str(request.status_code).startswith("2"):
+            return True
         else:
-            return "Failure"
-
-    def load_secrets(self, destroy=False):
-        if "environment_variables" in self.secrets:
-            for obj in self.secrets["environment_variables"]:
-                self._add_or_update_workspace_variable(obj, self.secrets["environment_variables"][obj], category="env", hcl=False,
-                                            sensitive=True)
-
-        if "workspace_variables" in self.secrets:
-            for obj in self.secrets["workspace_variables"]:
-                self._add_or_update_workspace_variable(obj, self.secrets["workspace_variables"][obj], category="env", hcl=False,
-                                            sensitive=True)
-
-        if destroy:
-            self._add_or_update_workspace_variable("CONFIRM_DESTROY", "1", category="env", hcl=False,
-                                        sensitive=True)
-
-
-    # Environment Variables from file
-    def load_environment_variables(self, directory):
-        with open(directory + "environment_variables.json", 'r') as fp:
-            variable_list = json.load(fp)
-            for obj in variable_list:
-                self._add_or_update_workspace_variable(obj, variable_list[obj], category="env",
-                                            sensitive=True)
-
-    # TODO: Rewrite the app variables.
-    def load_app_variables(self, directory):
-        url = "https://raw.githubusercontent.com/" + self.repository + "/env/" + self.environment + "/env/" + self.environment + ".tfvars"
-
-        print("Getting Environment Variables from: " + url)
-        variable_list = hcl.loads(requests.get(url)).json()
-        for obj in variable_list:
-            self._add_or_update_workspace_variable(obj, hcl.dumps(variable_list[obj]), hcl=True)
-
-        self._add_or_update_workspace_variable("app_id", self.app_id, hcl=False)
+            raise SyntaxError('Invalid Syntax')

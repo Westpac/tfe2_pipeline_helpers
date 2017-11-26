@@ -193,6 +193,42 @@ SAMPLE_GET_WORKSPACE_RUN = {
     }
 }
 
+SAMPLE_GET_WORKSPACE_RUN_PLANNED_CHANGES = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "planned",
+        "has-changes": True,
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_PLANNED_NO_CHANGES = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "planned",
+        "has-changes": False,
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_PLANNED_ERRORED = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "errored",
+        "has-changes": False,
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_PLANNED = {
+    "id": "run-testID",
+    "type": "runs",
+    "attributes": {
+        "status": "applied",
+        "has-changes": True,
+    }
+}
+
 SAMPLE_GET_WORKSPACE_VARIABLES_PARAMS = {
     'filter[organization][username]': 'TestOrg',
     'filter[workspace][name]': 'Example_Workspace_1'
@@ -256,3 +292,57 @@ SAMPLE_GET_WORKSPACE_VARIABLES = [
         }
     }
 ]
+
+SAMPLE_GET_WORKSPACE_RUN_PLAN = {
+    "id": "plan-testid",
+    "type": "plans",
+    "attributes": {
+      "has-changes": True,
+      "status": "finished",
+      "status-timestamps": {
+        "queued-at": "2017-10-11T11:38:13+00:00",
+        "started-at": "2017-10-11T11:38:14+00:00",
+        "finished-at": "2017-10-11T11:38:28+00:00"
+      },
+      "log-read-url": "https://logurl.com"
+    },
+    "relationships": {
+      "state-versions": {
+        "data": []
+      }
+    },
+    "links": {
+      "self": "/api/v2/plans/plan-testid"
+    }
+}
+
+SAMPLE_GET_WORKSPACE_RUN_APPLY = {
+    "id": "apply-testid",
+    "type": "applies",
+    "attributes": {
+      "status": "finished",
+      "status-timestamps": {
+        "queued-at": "2017-10-11T11:38:53+00:00",
+        "started-at": "2017-10-11T11:38:53+00:00",
+        "finished-at": "2017-10-11T11:40:05+00:00"
+      },
+      "log-read-url": "https://logurl.com"
+    },
+    "relationships": {
+      "state-versions": {
+        "data": [
+          {
+            "id": "sv-itHyqeoiwGgBpCXu",
+            "type": "state-versions"
+          },
+          {
+            "id": "sv-L2P1f9Hj2G45HXqA",
+            "type": "state-versions"
+          }
+        ]
+      }
+    },
+    "links": {
+      "self": "/api/v2/applies/apply-testid"
+    }
+}
