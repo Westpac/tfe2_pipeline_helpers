@@ -1,0 +1,27 @@
+{
+  "data": {
+    "id":"var-123456",
+    "type":"vars",
+    "attributes": {
+      "key":"key1",
+      "value":"value",
+      "sensitive":false,
+      "category":"env",
+      "hcl":false
+    },
+    "relationships": {
+      "configurable": {
+        "data": {
+          "id":"ws-example1",
+          "type":"workspaces"
+        },
+        "links": {
+          "related":"/api/v2/organizations/TestOrg/workspaces/Example_Workspace_1"
+        }
+      }
+    },
+    "links": {
+      "self":"/api/v2/vars/var-123456"
+    }
+  }
+}

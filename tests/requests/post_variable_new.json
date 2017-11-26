@@ -1,0 +1,19 @@
+{
+  "data": {
+    "type": "vars",
+    "attributes": {
+      "key": "key1",
+      "value": "value",
+      "category": "env",
+      "sensitive": false
+    }
+  },
+  "filter": {
+    "organization": {
+      "username": "TestOrg"
+    },
+    "workspace": {
+      "name": "Example_Workspace_1"
+    }
+  }
+}

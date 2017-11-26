@@ -1,55 +1,14 @@
-import json
 from unittest import TestCase, mock
-
 from tests.requests import requests as sample_requests
 from tests.responses import responses as sample_responses
+from tests.mocks import mocked_terraform_responses_gets as mock_gets
+from tests.mocks import mocked_terraform_responses_posts as mock_posts
+from tests.mocks import mocked_terraform_responses_patches as mock_patches
+from tests.mocks import mocked_terraform_responses_deletes as mock_deletes
+
+
 
 from te2_sdk.te2 import TE2Client, TE2WorkspaceRuns, TE2WorkspaceVariables
-
-def mocked_terraform_responses(*args, **kwargs):
-
-    base_url = "https://tf-api.com"
-
-    class MockResponse:
-        def __init__(self, json_data, status_code):
-            self.json_data = json_data
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_data
-
-    # Workspaces - Success
-    if kwargs.get('url') == base_url + '/organizations/TestOrg/workspaces':
-        with open('tests/responses/get_workspaces.json') as data_file:
-            data = json.load(data_file)
-        return MockResponse(data, 200)
-
-    # Runs List - Success
-    elif kwargs.get('url') == base_url + '/workspaces/Example_Workspace_1/runs':
-        with open('tests/responses/get_runs.json') as data_file:
-            data = json.load(data_file)
-        return MockResponse(data, 200)
-
-    # Run - Success
-    elif kwargs.get('url') == base_url + "/runs/run-testID":
-        with open('tests/responses/get_run.json') as data_file:
-            data = json.load(data_file)
-        return MockResponse(data, 200)
-
-    # Variables - Success
-    elif kwargs.get('url') == base_url + "/vars" and kwargs.get('params') == sample_responses.SAMPLE_GET_WORKSPACE_VARIABLES_PARAMS:
-        with open('tests/responses/get_variables.json') as data_file:
-            data = json.load(data_file)
-        return MockResponse(data, 200)
-
-    # Run - Success
-    elif kwargs.get('url') == base_url + "/runs/run-testID/actions/discard":
-        return MockResponse(None, 200)
-
-    return MockResponse(None, 404)
-
-def mocked_get_workspace_id(*args, **kwargs):
-    return "ws-example1"
 
 class TestTE2Client(TestCase):
     def setUp(self):
@@ -68,14 +27,14 @@ class TestTE2Client(TestCase):
             }
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_all_workspaces_success(self, mock_get):
         self.assertEqual(
             self.client.get_all_workspaces(),
             sample_responses.SAMPLE_GET_WORKSPACES_RESPONSE
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_request_workspace_id_success(self, mock_get):
         self.assertEqual(
             self.client.get_workspace_id("Example_Workspace_1"),
@@ -83,7 +42,7 @@ class TestTE2Client(TestCase):
         )
 
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_request_workspace_id_failure(self, mock_get):
 
         self.assertEqual(
@@ -95,7 +54,7 @@ class TestTE2Client(TestCase):
 
 class TestTE2WorkspaceRuns(TestCase):
 
-    @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', side_effect=mocked_get_workspace_id)
+    @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', return_value="ws-example1")
     def setUp(self, mock_get):
         self.client = TE2Client(
             organisation="TestOrg",
@@ -116,14 +75,14 @@ class TestTE2WorkspaceRuns(TestCase):
             sample_requests.SAMPLE_REQUEST_RUN
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_workspace_runs_success(self, mock_get):
         self.assertEqual(
             self.runs.get_workspace_runs("Example_Workspace_1"),
             sample_responses.SAMPLE_GET_WORKSPACE_RUNS
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_workspace_runs_fail(self, mock_get):
         self.assertEqual(
             self.runs.get_workspace_runs("Invalid_Workspace"),
@@ -144,28 +103,28 @@ class TestTE2WorkspaceRuns(TestCase):
             None
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_run_by_id_success(self, mock_get):
         self.assertEqual(
             self.runs.get_run_by_id("run-testID"),
             sample_responses.SAMPLE_GET_WORKSPACE_RUN
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_run_by_id_fail(self, mock_get):
         self.assertEqual(
             self.runs.get_run_by_id("invalid_run"),
             None
         )
 
-    @mock.patch('te2_sdk.te2.requests.post', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
     def test_discard_plan_by_id_success(self, mock_get):
         self.assertEqual(
             self.runs.discard_plan_by_id("run-testID"),
             "Successfully Discarded Plan: run-testID"
         )
 
-    @mock.patch('te2_sdk.te2.requests.post', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
     def test_discard_plan_by_id_fail(self, mock_get):
         self.assertEqual(
             self.runs.discard_plan_by_id("invalid_run"),
@@ -174,7 +133,7 @@ class TestTE2WorkspaceRuns(TestCase):
 
 class TestTE2WorkspaceVariables(TestCase):
 
-    @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', side_effect=mocked_get_workspace_id)
+    @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', return_value="ws-example1")
     def setUp(self, mock_patch):
 
         self.client = TE2Client(
@@ -207,14 +166,14 @@ class TestTE2WorkspaceVariables(TestCase):
             sample_requests.SAMPLE_REQUEST_WORKSPACE_FILTER
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_workspace_variables_success(self, mock_get):
         self.assertEqual(
             self.variables.get_workspace_variables(),
             sample_responses.SAMPLE_GET_WORKSPACE_VARIABLES
         )
 
-    @mock.patch('te2_sdk.te2.requests.get', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.get', side_effect=mock_gets)
     def test_get_workspace_variables_fail(self, mock_get):
         self.non_existant_vars = TE2WorkspaceVariables(
             client=self.client,
@@ -241,7 +200,7 @@ class TestTE2WorkspaceVariables(TestCase):
         )
 
     """
-    @mock.patch('te2_sdk.te2.requests.post', side_effect=mocked_terraform_responses)
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
     def test_create_or_update_workspace_variable_new_success(self, mock_get):
         self.assertEqual(
             self.variables.create_or_update_workspace_variable(
@@ -254,3 +213,103 @@ class TestTE2WorkspaceVariables(TestCase):
             "Success"
         )
     """
+
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
+    def test_create_or_update_workspace_variable_invalid_category(self, mock_get):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="key1",
+                value="value",
+                category="invalid",
+                sensitive=False,
+                hcl=False
+            ),
+            "Failure: Invalid Syntax - Category should be 'env' or 'terraform'"
+        )
+
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
+    def test_create_or_update_workspace_variable_invalid_sensitive(self, mock_get):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="key1",
+                value="value",
+                category="env",
+                sensitive="invalid",
+                hcl=False
+            ),
+            "Failure: Invalid Syntax - Sensitive should be True or False"
+        )
+
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
+    def test_create_or_update_workspace_variable_invalid_hcl(self, mock_get):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="key1",
+                value="value",
+                category="env",
+                sensitive=False,
+                hcl="invalid"
+            ),
+            "Failure: Invalid Syntax - hcl should be True or False"
+        )
+
+    @mock.patch('te2_sdk.te2.requests.delete', side_effect=mock_deletes)
+    def test_create_or_update_workspace_variable_invalid_hcl(self, mock_get):
+        self.assertEqual(
+            self.variables.delete_variable_by_id(
+                id="id-existing"
+            ),
+            "Success"
+        )
+
+    @mock.patch('te2_sdk.te2.requests.delete', side_effect=mock_deletes)
+    def test_create_or_update_workspace_variable_invalid_hcl(self, mock_get):
+        self.assertEqual(
+            self.variables.delete_variable_by_id(
+                id="id-fake"
+            ),
+            "Failure"
+        )
+
+    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', return_value=None)
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
+    def test_create_or_update_workspace_variable_new_success(self, patch_1, patch_2):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="key1",
+                value="value",
+                category="env",
+                sensitive=False,
+                hcl=False
+            ),
+            "Success"
+        )
+
+    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', return_value=None)
+    @mock.patch('te2_sdk.te2.requests.post', side_effect=mock_posts)
+    def test_create_or_update_workspace_variable_new_fail(self, patch_1, patch_2):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="INVALID_KEY)(!&$@)(&#$@",
+                value="value",
+                category="env",
+                sensitive=False,
+                hcl=False
+            ),
+            "Failure"
+        )
+
+    @mock.patch('te2_sdk.te2.TE2WorkspaceVariables.get_variable_by_name', return_value="id-existing")
+    @mock.patch('te2_sdk.te2.requests.patch', side_effect=mock_patches)
+    def test_create_or_update_workspace_variable_existing_success(self, patch_1, patch_2):
+        self.assertEqual(
+            self.variables.create_or_update_workspace_variable(
+                key="key1",
+                value="value",
+                category="env",
+                sensitive=False,
+                hcl=False
+            ),
+            "Success"
+        )
+

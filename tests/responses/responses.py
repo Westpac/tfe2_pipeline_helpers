@@ -256,3 +256,4 @@ SAMPLE_GET_WORKSPACE_VARIABLES = [
         }
     }
 ]
+
