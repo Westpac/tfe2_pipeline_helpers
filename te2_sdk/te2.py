@@ -143,6 +143,9 @@ class TE2WorkspaceRuns:
         self.load_secrets(destroy)
         self.load_app_variables("")
 
+        if destroy:
+            print("TBA") #TODO: add destroy variable
+
         return_data = self.te2_calls.post(path="/runs", data=self._render_request_run(destroy))
 
         print("Creating new Terraform run against: " + self.get_workspace_id)
@@ -157,6 +160,7 @@ class TE2WorkspaceRuns:
             planning = True
             status = "planning"
             changes_detected = None
+
             while planning:
                 planning = False
                 print("Job Status: Planning")
@@ -301,10 +305,20 @@ class TE2WorkspaceVariables():
 
     def delete_variable_by_name(self, name):
         var = self.get_variable_by_name(self, name)
-        return self.client.delete(path="/vars/" + var['data']['id'])
+
+        if var:
+            request = self.delete_variable_by_id(var)
+
+        else:
+            return 'Failure'
 
     def delete_variable_by_id(self, id):
-        return self.client.delete(path="/vars/" + id)
+        request = self.client.delete(path="/vars/" + id)
+
+        if str(request.status_code).startswith('2'):
+            return 'Success'
+        else:
+            return 'Failure'
 
     def delete_all_variables(self):
         variables = self.get_workspace_variables()
@@ -329,60 +343,29 @@ class TE2WorkspaceVariables():
     # TODO: Error Handling
     def create_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
                                          hcl=False):
+        # Data Validation
+        if category is not "env" and category is not "terraform":
+            return "Failure: Invalid Syntax - Category should be 'env' or 'terraform'"
+        if sensitive is not True and sensitive is not False:
+            return "Failure: Invalid Syntax - Sensitive should be True or False"
+        if hcl is not True and hcl is not False:
+            return "Failure: Invalid Syntax - hcl should be True or False"
 
         request_data = self._render_request_data_workplace_variable_attributes(
-            key, value, category, sensitive, hcl
+            key.replace(' ', '_'), value.replace(' ', '_'), category, sensitive, hcl
         )
 
         existing_variable = self.get_variable_by_name(key)
 
         if existing_variable:
-            request_data["data"]["id"] = existing_variable['id']
-            request = self.client.patch(
-                path= "/vars/" + existing_variable['id'],
-                data=json.dumps(request_data)
-            )
+            request_data["data"]["id"] = existing_variable
+            request = self.client.patch( path= "/vars/" + existing_variable, data=json.dumps(request_data))
 
         else:
             request_data["filter"] = self._render_request_data_workplace_filter()
             request = self.client.post(path="/vars", data=json.dumps(request_data))
 
-        if request.status_code().startswith("2"):
+        if str(request.status_code).startswith("2"):
             return "Success"
         else:
             return "Failure"
-
-    def load_secrets(self, destroy=False):
-        if "environment_variables" in self.secrets:
-            for obj in self.secrets["environment_variables"]:
-                self._add_or_update_workspace_variable(obj, self.secrets["environment_variables"][obj], category="env", hcl=False,
-                                            sensitive=True)
-
-        if "workspace_variables" in self.secrets:
-            for obj in self.secrets["workspace_variables"]:
-                self._add_or_update_workspace_variable(obj, self.secrets["workspace_variables"][obj], category="env", hcl=False,
-                                            sensitive=True)
-
-        if destroy:
-            self._add_or_update_workspace_variable("CONFIRM_DESTROY", "1", category="env", hcl=False,
-                                        sensitive=True)
-
-
-    # Environment Variables from file
-    def load_environment_variables(self, directory):
-        with open(directory + "environment_variables.json", 'r') as fp:
-            variable_list = json.load(fp)
-            for obj in variable_list:
-                self._add_or_update_workspace_variable(obj, variable_list[obj], category="env",
-                                            sensitive=True)
-
-    # TODO: Rewrite the app variables.
-    def load_app_variables(self, directory):
-        url = "https://raw.githubusercontent.com/" + self.repository + "/env/" + self.environment + "/env/" + self.environment + ".tfvars"
-
-        print("Getting Environment Variables from: " + url)
-        variable_list = hcl.loads(requests.get(url)).json()
-        for obj in variable_list:
-            self._add_or_update_workspace_variable(obj, hcl.dumps(variable_list[obj]), hcl=True)
-
-        self._add_or_update_workspace_variable("app_id", self.app_id, hcl=False)

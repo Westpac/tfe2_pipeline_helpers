@@ -1,0 +1,12 @@
+{
+  "data": {
+    "type": "vars",
+    "attributes": {
+      "key": "key1",
+      "value": "value",
+      "category": "env",
+      "sensitive": false
+    },
+    "id": "id-existing"
+  }
+}
