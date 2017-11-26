@@ -68,6 +68,49 @@ class TE2WorkspaceRuns:
             }
         }
 
+    def _request_run_request(self, run_id=None, destroy=False):
+        if run_id:  # Run an apply
+            path = "/runs/" + run_id + "/actions/apply"
+
+        else:  # Discard all existing plans
+            self.discard_all_pending_runs()
+            path = "/runs/"
+
+        request = self.client.post(path=path, data=json.dumps(self._render_run_request(destroy)))
+
+        if str(request.status_code).startswith("2"):
+            return request.json()['data']
+
+        else:
+            SyntaxError("Invalid call to Terraform Enterprise 2")
+
+    def _get_run_results(self, run_id, request_type="plan"):
+        """
+        Wait for plan/apply results, else timeout
+
+        :param run_id: ID for the run
+        :return: Returns object of the results.
+        """
+
+        if request_type == "plan":
+            wait_boundary = 30  # Plan timeout = 5 minutes
+        elif request_type == "apply":
+            wait_boundary = 120 # Apply timeout = 20 minutes
+        else:
+            raise KeyError("request_type must be Plan or Apply")
+
+        for x in range(0, wait_boundary):
+
+            print("Job Status: " + request_type + "ing | " + str(x * 10) + " seconds")
+            time.sleep(10)
+
+            request = self.client.get(path="/runs/" + run_id)
+            if request['data']['attributes']['status'] is not "planning" and \
+                request['data']['attributes']['status'] is not "applying":
+                return request['data']
+
+        raise TimeoutError("Plan took too long to resolve")
+
     def get_run_status(self, run_id):
         run = self.get_run_by_id(run_id)
 
@@ -119,7 +162,6 @@ class TE2WorkspaceRuns:
                 else:
                     runs_to_discard = False
 
-    # TODO: Error Handling
     def discard_plan_by_id(self, run_id):
 
         request = self.client.post(
@@ -143,33 +185,6 @@ class TE2WorkspaceRuns:
             print("2")
         else:
             raise SyntaxError("run_type must be 'plan' or 'apply'")
-
-    def _request_run_request(self, run_id=None, destroy=False):
-        if run_id: # Run an apply
-            path="/runs/" + run_id + "/actions/apply"
-
-        else: # Discard all existing plans
-            self.discard_all_pending_runs()
-            path="/runs/"
-
-        request = self.client.post(path=path, data=json.dumps(self._render_run_request(destroy)))
-
-        if str(request.status_code).startswith("2"):
-            return request.json()['data']
-
-        else:
-            SyntaxError("Invalid call to Terraform Enterprise 2")
-
-    def _wait_for_plan_to_complete(self, id):
-        while True:
-            print("Job Status: Planning")
-            time.sleep(5) # Leaving 5 seconds for plan to complete
-            request = self.client.get(path="/runs/" + id)
-            if request['data']['attributes']['status'] == "planning":
-                return {
-                    "status": request['data']['attributes']['status'],
-                    "changes_detected":  request['data']['attributes']['has-changes']
-                }
 
     def get_plan(self, run_id):
         run = self.client.get("/runs/" + run_id + "/plan" )
@@ -197,90 +212,32 @@ class TE2WorkspaceRuns:
         else:
             raise KeyError("Run_ID does not exist")
 
-    def create_plan(self, destroy=False):
-
-        results = {}
+    def request_run(self, destroy=False, request_type="plan"):
 
         try:
             request = self._request_run_request(destroy=destroy)
-        except:
-            # Keep Checking until planning phase has finished
-            results = {"status": "failed"}
+        except SyntaxError:
+
+            results = {}
         else:
             print("New Run: " + request['data']['id'])
+            results = self._get_run_results(run_id= request['data']['id'], request_type="plan")
+
+            if results['attributes']['status'] == "errored":
+                print("Job Status: Failed")
+
+            elif results['attributes']['status'] == "planned":
+                if ['has-changes']:
+                    print("Job Status: Changes Detected")
+                else:
+                    print("Job Status: No Changes Detected")
+
+            elif results['attributes']['status'] == "applied":
+                print("Job Status: Apply Successful")
 
         finally:
             return results
 
-        print("changes detected: " + str(changes_detected))
-
-        # If Plan Failed
-        if status == "errored":
-            print("Job Status: Failed")
-            print("Job Output")
-            exit(1)
-
-        # If Plan Succeeded, Check for Changes
-        elif status == "planned":
-            if changes_detected:
-                print("Changes Detected")
-                with open('data.json', 'w') as f:
-                    json.dump({'status': "changed", 'run_id': json.loads(return_data.text)['data']['id']}, f,
-                              ensure_ascii=False)
-
-            else:
-                print("No Changes Detected")
-                with open('data.json', 'w') as f:
-                    json.dump({"status": "unchanged", "run_id": json.loads(return_data.text)['data']['id']}, f,
-                              ensure_ascii=False)
-
-        exit(0)
-
-
-        print("Plan Failed: " + json.loads(return_data.text)["data"]["attributes"]["message"])
-
-        with open('data.json', 'w') as f:
-            json.dump({"status": "failed", "run_id": json.loads(return_data.text)['data']['id']}, f,
-                      ensure_ascii=False)
-
-    def apply_run(self, run_id, destroy=False):
-
-
-        if str(return_data.status_code).startswith("2"):
-
-            # Keep Checking until planning phase has finished
-            status = "applying"
-            while status == "applying" or status == "queued":
-                print("Job Status: Applying changes")
-                time.sleep(5)
-
-                request = self.te2_calls.get(path="/runs/" + run_id).json()
-
-                status = request['data']['attributes']['status']
-
-            # Get Log File
-            # print("Log File Directory:" + log_read_url)
-            # print(requests.get(log_read_url, headers=self.header).text)
-
-            self._delete_all_variables()
-
-            # If Plan Failed
-            if status == "errored":
-                with open('data.json', 'w') as f:
-                    json.dump({"status": "failed"}, f,
-                              ensure_ascii=False)
-
-            # If Plan Succeeded, Check for Changes
-            elif status == "applied":
-                with open('data.json', 'w') as f:
-                    json.dump({"status": "applied"}, f,
-                              ensure_ascii=False)
-
-        else:  # Else Fail Run
-            print("Apply Failed")
-            with open('data.json', 'w') as f:
-                json.dump({"status": "errored"}, f,
-                          ensure_ascii=False)
 
 class TE2WorkspaceVariables():
     def __init__(self, client, workspace_name):
@@ -381,7 +338,7 @@ class TE2WorkspaceVariables():
 
         if existing_variable:
             request_data["data"]["id"] = existing_variable
-            request = self.client.patch( path= "/vars/" + existing_variable, data=json.dumps(request_data))
+            request = self.client.patch(path="/vars/" + existing_variable, data=json.dumps(request_data))
 
         else:
             request_data["filter"] = self._render_request_data_workplace_filter()
