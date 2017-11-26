@@ -32,18 +32,28 @@ class RunTests(Command):
 
 
 setup(
-    name='tfe2_pipeline_helpers',
+    name='te2-sdk',
     version=__version__,
-    description='Simple scripts to call TFE2 from Release Pipelines, pulling ancillary information from Consul',
+    description='Simple Wrapper for Terraform Enterprise 2 Jobs',
     long_description=readme,
     author='Rory Chatterton',
     author_email='rchatterton@westpac.com.au',
-    url='https://github.com/westpac/tfe2_pipeline_helpers',
+    url='https://github.com/westpac-cloud-engineering/Terraform-Enterprise-2-Python-SDK',
     license=license,
-    packages=find_packages(exclude=('tests', 'docs', 'examples', 'schema')),
-    install_requires=['pyhcl', 'jinja2', 'requests', 'consul_kv'],
+    packages=find_packages(exclude=('tests', 'docs')),
+    install_requires=['requests'],
     extras_require={
         'test': ['coverage', 'pytest', 'pytest-cov'],
     },
     cmdclass={'test': RunTests},
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Topic :: Text Processing"
+    ]
 )

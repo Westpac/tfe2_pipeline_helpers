@@ -1,6 +1,7 @@
 include LICENSE
 include README.rst
 include setup.cfg
+include te2_sdk
 exclude .gitignore
 exclude .coverage
 exclude .travis.yml
