@@ -15,8 +15,6 @@ class TE2Client:
         self.base_url = base_url
 
     def get_workspace_id(self, workspace_name):
-
-        # Find the ID for the Repository that matches the repository name.
         for obj in self.get_all_workspaces():
             if obj["attributes"]["name"] == workspace_name:
                 return obj["id"]
@@ -43,13 +41,11 @@ class TE2Client:
 
 
 class TE2WorkspaceRuns:
-    def __init__(self, client, app_id, workspace_name, repository, base_api_url=None):
+    def __init__(self, client, workspace_name, base_api_url=None):
 
         self.client = client
         self.workspace_name = workspace_name
         self.workspace_id = self.client.get_workspace_id(workspace_name)
-        self.app_id = app_id
-        self.repository = repository
 
     def _render_run_request(self, destroy=False):
         return {
@@ -259,7 +255,7 @@ class TE2WorkspaceVariables():
             for var in self.get_workspace_variables():
                 if var['attributes']['key'] == name:
                     return var
-        raise KeyError('Name: \'' + "name" + "\' does not exist")
+        raise KeyError('Name: \'' + name + "\' does not exist")
 
     def delete_variable_by_name(self, name):
         var = self.get_variable_by_name(self, name)
@@ -312,15 +308,14 @@ class TE2WorkspaceVariables():
             key.replace(' ', '_'), value.replace(' ', '_'), category, sensitive, hcl
         )
 
-        existing_variable = self.get_variable_by_name(key)
-
-        if existing_variable:
-            request_data["data"]["id"] = existing_variable
-            request = self.client.patch(path="/vars/" + existing_variable, data=json.dumps(request_data))
-
-        else:
+        try:
+            existing_variable = self.get_variable_by_name(key)
+        except KeyError:
             request_data["filter"] = self._render_request_data_workplace_filter()
             request = self.client.post(path="/vars", data=json.dumps(request_data))
+        else:
+            request_data["data"]["id"] = existing_variable
+            request = self.client.patch(path="/vars/" + existing_variable, data=json.dumps(request_data))
 
         if str(request.status_code).startswith("2"):
             return True
