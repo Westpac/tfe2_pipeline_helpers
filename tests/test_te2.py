@@ -59,7 +59,7 @@ class TestTE2WorkspaceConfigurations(TestCase):
             workspace_name="Example_Workspace_1",
         )
 
-    #TODO: Insert Tests for Configuration Version
+    # TODO: Insert Tests for Configuration Version
 
 class TestTE2WorkspaceRuns(TestCase):
     @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', return_value="ws-example1")
