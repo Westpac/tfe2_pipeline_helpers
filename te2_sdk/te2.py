@@ -40,8 +40,33 @@ class TE2Client:
         return requests.delete(url=self.base_url + path, headers=self.request_header, params=params)
 
 
+class TE2WorkspaceConfigurations:
+    def __init__(self, client, workspace_name):
+        self.client = client
+        self.workspace_name = workspace_name
+        self.workspace_id = self.client.get_workspace_id(workspace_name)
+
+    def _create_configuration_version(self):
+        request = self.client.post(
+            path="/workspaces/" + self.workspace_id + "/configuration-versions",
+            data=json.dumps({
+              "data": {
+                "type": "configuration-versions"
+              }
+            })
+        )
+
+        if str(request.status_code).startswith("2"):
+            print("Successfully created Configuration Version: " + request.json()['data']['id'])
+            return request.json()['attributes']['upload-url']
+        else:
+            raise KeyError("Configuration Creation Failed")
+
+    def upload_configuration(self):
+        return("Stub")
+
 class TE2WorkspaceRuns:
-    def __init__(self, client, workspace_name, base_api_url=None):
+    def __init__(self, client, workspace_name):
 
         self.client = client
         self.workspace_name = workspace_name
