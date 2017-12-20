@@ -1,7 +1,8 @@
 import json
 import time
 import requests
-
+import os
+import tarfile
 
 class TE2Client:
     def __init__(self, organisation, atlas_token, base_url="https://atlas.hashicorp.com/api/v2"):
@@ -30,8 +31,8 @@ class TE2Client:
     def get(self, path, params=None):
         return requests.get(url=self.base_url + path, headers=self.request_header, params=params)
 
-    def post(self, path, data, params=None):
-        return requests.post(url=self.base_url + path, data=data, headers=self.request_header, params=params)
+    def post(self, path, data, files=None, params=None):
+        return requests.post(url=self.base_url + path, data=data, headers=self.request_header, params=params, files=files)
 
     def patch(self, path, data, params=None):
         return requests.patch(url=self.base_url + path, data=data, headers=self.request_header, params=params)
@@ -62,8 +63,22 @@ class TE2WorkspaceConfigurations:
         else:
             raise KeyError("Configuration Creation Failed")
 
-    def upload_configuration(self):
-        return("Stub")
+    @staticmethod
+    def _tar_files(source_directory="/"):
+        with tarfile.open("configuration_files.tar.gz", "w:gz") as tar:
+            tar.add(source_directory, arcname=os.path.basename(source_directory))
+        return str(source_directory + "configuration_files.tar.gz")
+
+    def upload_configuration(self, source_directory="/"):
+        request = self.client.post(
+            path=self._create_configuration_version(),
+            files={'file': open(self._tar_files(source_directory), 'rb')}
+        )
+
+        if str(request.status_code).startswith("2"):
+            print("Successfully Uploaded Configuration")
+        else:
+            raise KeyError("Upload Failed")
 
 class TE2WorkspaceRuns:
     def __init__(self, client, workspace_name):

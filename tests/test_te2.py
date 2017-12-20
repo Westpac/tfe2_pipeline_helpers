@@ -5,7 +5,7 @@ from tests.mocks import mocked_terraform_responses_gets as mock_gets
 from tests.mocks import mocked_terraform_responses_posts as mock_posts
 from tests.mocks import mocked_terraform_responses_patches as mock_patches
 from tests.mocks import mocked_terraform_responses_deletes as mock_deletes
-from te2_sdk.te2 import TE2Client, TE2WorkspaceRuns, TE2WorkspaceVariables
+from te2_sdk.te2 import TE2Client, TE2WorkspaceRuns, TE2WorkspaceVariables, TE2WorkspaceConfigurations
 
 
 class TestTE2Client(TestCase):
@@ -45,6 +45,21 @@ class TestTE2Client(TestCase):
 
         # TODO: Create Requests Tests
 
+class TestTE2WorkspaceConfigurations(TestCase):
+    @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', return_value="ws-example1")
+    def setUp(self, *args, **kwargs):
+        self.client = TE2Client(
+            organisation="TestOrg",
+            atlas_token="Test_Token",
+            base_url="https://tf-api.com"
+        )
+
+        self.runs = TE2WorkspaceConfigurations(
+            client=self.client,
+            workspace_name="Example_Workspace_1",
+        )
+
+    #TODO: Insert Tests for Configuration Version
 
 class TestTE2WorkspaceRuns(TestCase):
     @mock.patch('te2_sdk.te2.TE2Client.get_workspace_id', return_value="ws-example1")
