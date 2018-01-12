@@ -1,8 +1,6 @@
 import json
 import time
 import requests
-import os
-import tarfile
 
 class TE2Client:
     def __init__(self, organisation, atlas_token, base_url="https://atlas.hashicorp.com/api/v2"):
@@ -26,7 +24,7 @@ class TE2Client:
         if str(request.status_code).startswith("2"):
             return request.json()['data']
         else:
-            raise KeyError('No workspaces can be found under this organisation')
+            raise KeyError('No workspaces can be found under thorganisation')
 
     def get(self, path, params=None):
         return requests.get(url=self.base_url + path, headers=self.request_header, params=params)
@@ -39,7 +37,6 @@ class TE2Client:
 
     def delete(self, path, params=None):
         return requests.delete(url=self.base_url + path, headers=self.request_header, params=params)
-
 
 class TE2WorkspaceConfigurations:
     def __init__(self, client, workspace_name):
@@ -63,16 +60,11 @@ class TE2WorkspaceConfigurations:
         else:
             raise KeyError("Configuration Creation Failed")
 
-    @staticmethod
-    def _tar_files(source_directory="/"):
-        with tarfile.open("configuration_files.tar.gz", "w:gz") as tar:
-            tar.add(source_directory, arcname=os.path.basename(source_directory))
-        return str(source_directory + "configuration_files.tar.gz")
 
-    def upload_configuration(self, source_directory="/"):
+    def upload_configuration(self, tar_file_directory):
         request = self.client.post(
             path=self._create_configuration_version(),
-            files={'file': open(self._tar_files(source_directory), 'rb')}
+            files={'file': open(tar_file_directory, 'rb')}
         )
 
         if str(request.status_code).startswith("2"):
@@ -133,14 +125,14 @@ class TE2WorkspaceRuns:
         :return: Returns object of the results.
         """
 
-        if request_type is not "plan" and request_type is not "apply":
+        if request_type != "plan" and request_type != "apply":
             raise KeyError("request_type must be Plan or Apply")
 
         for x in range(0, timeout_count):
 
             request = self.client.get(path="/runs/" + run_id).json()
-            if request['data']['attributes']['status'] is not "planning" and \
-                            request['data']['attributes']['status'] is not "applying":
+            if request['data']['attributes']['status'] != "planning" and \
+                            request['data']['attributes']['status'] != "applying":
                 return request['data']
 
             print("Job Status: " + request_type + "ing | " + str(x * 10) + " seconds")
@@ -252,7 +244,6 @@ class TE2WorkspaceRuns:
         finally:
             return results
 
-
 class TE2WorkspaceVariables():
     def __init__(self, client, workspace_name):
         self.client = client  # Connectivity class to provide function calls.
@@ -337,11 +328,11 @@ class TE2WorkspaceVariables():
     def create_or_update_workspace_variable(self, key, value, category="terraform", sensitive=False,
                                             hcl=False):
         # Data Validation
-        if category is not "env" and category is not "terraform":
+        if category != "env" and category != "terraform":
             raise SyntaxError("Category should be 'env' or 'terraform")
-        if sensitive is not True and sensitive is not False:
+        if sensitive != True and sensitive != False:
             raise SyntaxError('Sensitive should be True or False')
-        if hcl is not True and hcl is not False:
+        if hcl != True and hcl != False:
             raise SyntaxError('hcl should be True or False')
 
         request_data = self._render_request_data_workplace_variable_attributes(

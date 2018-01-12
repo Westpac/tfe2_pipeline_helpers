@@ -29,21 +29,21 @@ run = ws_runs.request_run(request_type="plan", destroy=False)
 
 And to do a run:
 ```python
-run = ws_runs.request_run(request_type="apply", destroy=False)
+run = ws_runs.request_run(request_type="apply", destroy=False, run_id = "RUN_ID_FROM_PLAN")
 ```
 
-###Completed Functionality
+### Completed Functionality
 
 - [x] Runs
-    - Plan
-    - Run
-    - Discard
-    - Get Log
+    - [x] Plan
+    - [x] Run
+    - [x] Discard
+    - [x] Get Log
 - [x] Variables
-    - Create
-    - Read
-    - Update
-    - Delete
+    - [x] Create
+    - [x] Read
+    - [x] Update
+    - [x] Delete
     
 ### Incomplete Functionality
 The following items are not in development, as these Day 0 operations will eventually be wrapped up in an official Terraform Provider. 
